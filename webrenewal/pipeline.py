@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import json
 import logging
-from pathlib import Path
 from typing import Optional
 
 from . import configure_logging
@@ -38,7 +38,8 @@ from .models import (
     ThemeTokens,
     ToolCatalog,
 )
-from .storage import SANDBOX_DIR, write_json
+from .storage import SANDBOX_DIR, write_json, write_text
+from .utils import url_to_relative_path
 
 
 class WebRenewalPipeline:
@@ -76,6 +77,8 @@ class WebRenewalPipeline:
 
         crawl_result: CrawlResult = self.crawler.run(scope_plan)
         write_json(crawl_result, "crawl.json")
+        original_files = self._export_original_site(crawl_result)
+        write_text(json.dumps(original_files, indent=2), "original_manifest.json")
 
         content_extract = self.readability.run(crawl_result)
         write_json(content_extract, "content.json")
@@ -120,6 +123,22 @@ class WebRenewalPipeline:
         write_json(memory_record, "memory.json")
 
         self.logger.info("Pipeline execution finished. Outputs stored in %s", SANDBOX_DIR)
+
+    def _export_original_site(self, crawl_result: CrawlResult) -> list[str]:
+        """Persist a copy of the crawled pages in the sandbox."""
+
+        original_root = SANDBOX_DIR / "original"
+        original_root.mkdir(parents=True, exist_ok=True)
+        exported: list[str] = []
+
+        for page in crawl_result.pages:
+            relative_path = url_to_relative_path(page.url)
+            destination = original_root / relative_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(page.html, encoding="utf-8")
+            exported.append(str(destination.relative_to(SANDBOX_DIR)))
+
+        return sorted(set(exported))
 
 
 def run_pipeline(domain: str, log_level: int = logging.INFO) -> None:

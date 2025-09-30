@@ -153,6 +153,12 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Konfiguriere optional den Zugriff auf OpenAI für hochwertige Textumschreibungen:
+
+```bash
+export OPENAI_API_KEY="<dein-schlüssel>"
+```
+
 Pipeline ausführen (Beispiel PhysioHeld):
 
 ```bash
@@ -160,7 +166,8 @@ python renewal.py https://www.physioheld.ch --log-level INFO
 ```
 
 Alle Artefakte landen in `sandbox/`, inklusive Crawl-Daten, Analysen, Plan, Rewrite,
-Theme-Tokens, Build (`sandbox/newsite/index.html`), Diff-Preview und Angebot.
+Theming-Tokens, einer vollständigen Kopie der Originalseiten (`sandbox/original/`),
+dem mehrseitigen Build (`sandbox/newsite/`), Diff-Preview und Angebot.
 
 ## Legacy Demo-Hinweise
 
