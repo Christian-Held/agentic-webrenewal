@@ -130,6 +130,102 @@ class RewriteAgent(Agent[tuple[str, ContentExtract, RenewalPlan], ContentBundle]
         if len(block_payload) != len(content.sections):
             raise ValueError("LLM returned an unexpected number of blocks")
 
+
+    def run(self, data: tuple[ContentExtract, RenewalPlan]) -> ContentBundle:
+        content, plan = data
+        client = self._get_client()
+
+        if client is None:
+            self.logger.warning("OpenAI API key missing; falling back to deterministic rewrite")
+            return self._fallback_bundle(content)
+
+        try:
+            return self._rewrite_with_llm(client, content, plan)
+        except (OpenAIError, ValueError, json.JSONDecodeError) as exc:
+            self.logger.warning("LLM rewrite failed (%s); using fallback", exc)
+            return self._fallback_bundle(content)
+
+    def _get_client(self) -> Optional[OpenAI]:
+        """Initialise the OpenAI client if credentials are configured."""
+
+        if self._client is not None:
+            return self._client
+
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return None
+
+        self._client = OpenAI(api_key=api_key)
+        return self._client
+
+    def _rewrite_with_llm(
+        self, client: OpenAI, content: ContentExtract, plan: RenewalPlan
+    ) -> ContentBundle:
+        """Leverage the OpenAI Responses API to refresh the site copy."""
+
+        payload = {
+            "language": content.language or "auto",
+            "goals": plan.goals,
+            "actions": [
+                {"id": action.identifier, "description": action.description, "impact": action.impact}
+                for action in plan.actions
+            ],
+            "sections": [
+                {
+                    "title": section.title,
+                    "text": section.text,
+                    "readability_score": section.readability_score,
+                }
+                for section in content.sections
+            ],
+        }
+
+        response = client.responses.create(
+            model=self._model,
+            temperature=self._temperature,
+            response_format={"type": "json_object"},
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert marketing copywriter for physiotherapy clinics. "
+                        "Rewrite the provided website sections to improve clarity, persuasion and accessibility. "
+                        "Maintain the same language as the input and produce concise HTML-ready paragraphs without Markdown."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Return JSON with keys 'meta_title', 'meta_description' and 'blocks'. "
+                        "Each entry in 'blocks' must contain 'title' and 'body' fields. "
+                        "Keep the number of blocks equal to the provided sections and preserve critical medical disclaimers. "
+                        "Here is the source data: "
+                        + json.dumps(payload, ensure_ascii=False)
+                    ),
+                },
+            ],
+        )
+
+        raw_output = getattr(response, "output_text", None)
+        if not raw_output:
+            parts: List[str] = []
+            for item in getattr(response, "output", []):
+                for content_item in getattr(item, "content", []):
+                    if getattr(content_item, "type", "") == "output_text":
+                        parts.append(getattr(content_item, "text", ""))
+            raw_output = "".join(parts)
+
+        if not raw_output:
+            raise ValueError("No textual output returned by LLM")
+
+        data = json.loads(raw_output)
+
+        block_payload = data.get("blocks")
+        if not isinstance(block_payload, list):
+            raise ValueError("Missing blocks in LLM response")
+        if len(block_payload) != len(content.sections):
+            raise ValueError("LLM returned an unexpected number of blocks")
+
         blocks: List[ContentBlock] = []
         for index, (section, block_data) in enumerate(zip(content.sections, block_payload), start=1):
             if not isinstance(block_data, dict):
@@ -162,13 +258,10 @@ class RewriteAgent(Agent[tuple[str, ContentExtract, RenewalPlan], ContentBundle]
             fallback_used=False,
         )
 
-    def _fallback_bundle(self, domain: str, content: ContentExtract) -> ContentBundle:
+
+    def _fallback_bundle(self, content: ContentExtract) -> ContentBundle:
         """Provide a deterministic rewrite when the LLM is unavailable."""
 
-        site_label = domain_to_display_name(domain)
-        fallback_notice = (
-            "[Fallback] Automated rewrite unavailable. Displaying lightly processed original content."
-        )
         blocks: List[ContentBlock] = []
         for index, section in enumerate(content.sections, start=1):
             intro = (
