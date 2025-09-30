@@ -121,11 +121,10 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
             "Here is the source data: "
             + json.dumps(payload, ensure_ascii=False)
         )
-        response = client.responses.create(
-            model=self._model,
-            temperature=self._temperature,
-            response_format={"type": "json_object"},
-            input=[
+        request_kwargs = {
+            "model": self._model,
+            "temperature": self._temperature,
+            "input": [
                 {
                     "role": "system",
                     "content": guidelines,
@@ -135,7 +134,21 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                     "content": user_instruction,
                 },
             ],
-        )
+        }
+
+        try:
+            response = client.responses.create(
+                **request_kwargs,
+                response_format={"type": "json_object"},
+            )
+        except TypeError as exc:
+            if "response_format" not in str(exc):
+                raise
+
+            self.logger.debug(
+                "Retrying without response_format due to legacy client: %s", exc
+            )
+            response = client.responses.create(**request_kwargs)
 
         raw_output = getattr(response, "output_text", None)
         if not raw_output:
