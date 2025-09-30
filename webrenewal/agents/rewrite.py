@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from itertools import zip_longest
@@ -12,6 +13,7 @@ from openai import OpenAI, OpenAIError
 
 from .base import Agent
 from ..models import ContentBlock, ContentBundle, ContentExtract, RenewalPlan
+from ..tracing import log_event, trace
 from ..utils import domain_to_display_name
 
 RewriteInput = Union[
@@ -33,17 +35,70 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
         domain, content, plan = self._normalise_input(data)
         client = self._get_client()
 
+        log_event(
+            self.logger,
+            logging.DEBUG,
+            "rewrite.run",
+            agent=self.name,
+            domain=domain,
+            sections=len(content.sections),
+            goals=len(plan.goals),
+        )
         if client is None:
-            self.logger.warning("OpenAI API key missing; falling back to deterministic rewrite")
-            return self._fallback_bundle(domain, content)
+            log_event(
+                self.logger,
+                logging.WARNING,
+                "rewrite.openai.missing_key",
+                agent=self.name,
+                domain=domain,
+            )
+            bundle = self._fallback_bundle(domain, content)
+            log_event(
+                self.logger,
+                logging.INFO,
+                "rewrite.fallback",
+                agent=self.name,
+                domain=domain,
+                reason="missing_openai_key",
+                blocks=len(bundle.blocks),
+            )
+            return bundle
 
         try:
-            return self._rewrite_with_llm(client, domain, content, plan)
+            bundle = self._rewrite_with_llm(client, domain, content, plan)
         except (OpenAIError, ValueError, json.JSONDecodeError) as exc:
-            self.logger.warning(
-                "LLM rewrite failed (%s); using fallback", exc, exc_info=True
+            log_event(
+                self.logger,
+                logging.WARNING,
+                "rewrite.llm.failure",
+                agent=self.name,
+                domain=domain,
+                error=repr(exc),
+                exc_info=True,
             )
-            return self._fallback_bundle(domain, content)
+            bundle = self._fallback_bundle(domain, content)
+            log_event(
+                self.logger,
+                logging.INFO,
+                "rewrite.fallback",
+                agent=self.name,
+                domain=domain,
+                reason="llm_failure",
+                error=repr(exc),
+                blocks=len(bundle.blocks),
+            )
+            return bundle
+
+        log_event(
+            self.logger,
+            logging.INFO,
+            "rewrite.success",
+            agent=self.name,
+            domain=domain,
+            blocks=len(bundle.blocks),
+            fallback=bundle.fallback_used,
+        )
+        return bundle
 
     def _normalise_input(
         self, data: RewriteInput
@@ -140,19 +195,37 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
             ],
         }
 
-        try:
-            response = client.responses.create(
-                **request_kwargs,
-                response_format={"type": "json_object"},
-            )
-        except TypeError as exc:
-            if "response_format" not in str(exc):
-                raise
+        with trace(
+            "rewrite.llm_request",
+            logger=self.logger,
+            agent=self.name,
+            domain=domain,
+            model=self._model,
+            temperature=self._temperature,
+            sections=len(content.sections),
+        ) as span:
+            try:
+                response = client.responses.create(
+                    **request_kwargs,
+                    response_format={"type": "json_object"},
+                )
+                span.note(mode="json_object")
+            except TypeError as exc:
+                if "response_format" not in str(exc):
+                    span.note(error=repr(exc))
+                    raise
 
-            self.logger.debug(
-                "Retrying without response_format due to legacy client: %s", exc
-            )
-            response = client.responses.create(**request_kwargs)
+                log_event(
+                    self.logger,
+                    logging.DEBUG,
+                    "rewrite.llm.legacy_client",
+                    agent=self.name,
+                    domain=domain,
+                    error=repr(exc),
+                )
+                response = client.responses.create(**request_kwargs)
+                span.note(mode="fallback_request")
+
 
         raw_output = self._extract_response_text(response)
         if not raw_output:
@@ -165,7 +238,14 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
         try:
             data = json.loads(cleaned_output)
         except json.JSONDecodeError:
-            self.logger.debug("Unable to parse LLM response: %s", raw_output)
+            log_event(
+                self.logger,
+                logging.DEBUG,
+                "rewrite.llm.parse_failure",
+                agent=self.name,
+                domain=domain,
+                sample=raw_output[:500],
+            )
             raise
 
         block_payload = data.get("blocks")
@@ -173,11 +253,26 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
             raise ValueError("Missing blocks in LLM response")
         expected_sections = len(content.sections)
         received_blocks = len(block_payload)
+
+        log_event(
+            self.logger,
+            logging.DEBUG,
+            "rewrite.llm.response",
+            agent=self.name,
+            domain=domain,
+            keys=sorted(data.keys()),
+            received=received_blocks,
+            expected=expected_sections,
+        )
         if received_blocks != expected_sections:
-            self.logger.warning(
-                "LLM returned %s blocks for %s sections; aligning output",
-                received_blocks,
-                expected_sections,
+            log_event(
+                self.logger,
+                logging.WARNING,
+                "rewrite.blocks.mismatch",
+                agent=self.name,
+                domain=domain,
+                received=received_blocks,
+                expected=expected_sections,
             )
 
         blocks: List[ContentBlock] = []
@@ -190,8 +285,14 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                     # Defensive branch: no section or block (zip_longest should avoid this)
                     self.logger.debug("Skipping empty section/block at index %s", index)
                     continue
-                self.logger.debug(
-                    "Filling missing LLM block with original content for section %s", index
+                log_event(
+                    self.logger,
+                    logging.DEBUG,
+                    "rewrite.blocks.fill_missing",
+                    agent=self.name,
+                    domain=domain,
+                    index=index,
+                    title=section.title if section else None,
                 )
                 fallback_body = section.text or ""
                 blocks.append(
