@@ -24,14 +24,16 @@ Der Flow: **Discover → Crawl → Analyse → Plan → Rewrite/Redesign → Bui
 ---
 
 ## Architektur (Python-Only)
-- **Orchestrierung**: eigene Pipeline, direkte `openai`-Calls  
-- **LLMs**: `gpt-4.1-mini`, `gpt-4.1`, `claude`, `mistral` oder andere → parallel pro Task  
-- **Validator**: LLM-basierte Bewertung + strukturierte Heuristiken  
-- **Persistenz**: Filesystem (`sandbox/`) + Memory (LibSQL MCP)  
-- **Analyse**: `beautifulsoup4`, `lxml`, `trafilatura`  
-- **Build**: `jinja2` (Static Site Generation)  
-- **Diff/Preview**: `difflib` + lokaler HTML-Viewer  
-- **Keine Frameworks** wie LangGraph oder LiteLLM  
+- **Orchestrierung**: modulare Pipeline im Paket `webrenewal/` mit eigenem Agent-Interface
+- **Analyse**: `beautifulsoup4`, `lxml`, `textstat`, `trafilatura`
+- **Build**: `jinja2` (Static Site Generation)
+- **Diff/Preview**: `difflib`
+- **Persistenz**: JSON-Artefakte & Site-Build im Ordner `sandbox/`
+- **Keine Frameworks** wie LangGraph oder LiteLLM
+
+Der PoC ist vollständig in Python implementiert. Jedes Agent-Modul liefert klar typisierte
+Dataclasses samt Logging. `renewal.py` dient als CLI, `webrenewal/pipeline.py` orchestriert
+den Ablauf von Tool-Discovery bis Memory-Persistenz.
 
 ---
 
@@ -141,7 +143,7 @@ siehe Ordner `mcps/` (Filesystem, Browser, Fetch, Memory). Jeder enthält Python
 
 ---
 
-## Setup & Run
+## Setup & Run (PoC)
 
 ```bash
 git clone <repo-url> agentic-webrenewal
@@ -149,29 +151,21 @@ cd agentic-webrenewal
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
 ```
 
-Demo starten:
+Pipeline ausführen (Beispiel PhysioHeld):
 
 ```bash
-# Dummy-Website serven
-cd website_demo
-python -m http.server 8080
-
-# Renewal ausführen
-cd ..
-python renewal.py
+python renewal.py https://www.physioheld.ch --log-level INFO
 ```
 
-Outputs:
+Alle Artefakte landen in `sandbox/`, inklusive Crawl-Daten, Analysen, Plan, Rewrite,
+Theme-Tokens, Build (`sandbox/newsite/index.html`), Diff-Preview und Angebot.
 
-* `sandbox/crawl.json`
-* `sandbox/seo.json`
-* `sandbox/plan.json`
-* `sandbox/content_new.json`
-* `sandbox/newsite/`
-* `sandbox/preview.json`
-* `sandbox/offer.json`
+## Legacy Demo-Hinweise
+
+Die ursprünglichen Demo-Schritte (lokaler HTTP-Server, manuelles Anstoßen) bleiben hier
+aus historischen Gründen dokumentiert. Für das neue PoC genügt der oben beschriebene
+`renewal.py`-Aufruf; dieser Abschnitt wird in einer späteren Iteration bereinigt.
 
 
