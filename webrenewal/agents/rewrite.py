@@ -38,7 +38,9 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
         try:
             return self._rewrite_with_llm(client, domain, content, plan)
         except (OpenAIError, ValueError, json.JSONDecodeError) as exc:
-            self.logger.warning("LLM rewrite failed (%s); using fallback", exc)
+            self.logger.warning(
+                "LLM rewrite failed (%s); using fallback", exc, exc_info=True
+            )
             return self._fallback_bundle(domain, content)
 
     def _normalise_input(
