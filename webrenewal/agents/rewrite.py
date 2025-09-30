@@ -26,7 +26,11 @@ class RewriteAgent(Agent[tuple[ContentExtract, RenewalPlan], ContentBundle]):
                 "This content was refreshed to emphasise the clinic's benefits and clarity. "
                 "Original readability score: "
             )
-            refreshed = f"{intro}{section.readability_score:.1f if section.readability_score is not None else 'n/a'}.\n\n{section.text}"
+            if section.readability_score is not None:
+                readability_score = f"{section.readability_score:.1f}"
+            else:
+                readability_score = "n/a"
+            refreshed = f"{intro}{readability_score}.\n\n{section.text}"
             blocks.append(
                 ContentBlock(
                     title=section.title or f"Section {index}",
