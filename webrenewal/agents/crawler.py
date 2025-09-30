@@ -40,7 +40,9 @@ class CrawlerAgent(Agent[ScopePlan, CrawlResult]):
             try:
                 response = get(current_url, headers={"User-Agent": "AgenticWebRenewal/0.1"})
             except requests.RequestException as exc:  # type: ignore[attr-defined]
-                self.logger.error("Failed to fetch %s: %s", current_url, exc)
+                self.logger.error(
+                    "Failed to fetch %s: %s", current_url, exc, exc_info=True
+                )
                 continue
             pages.append(
                 PageContent(
