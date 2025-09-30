@@ -167,6 +167,7 @@ class ContentBundle(Serializable):
     blocks: List[ContentBlock]
     meta_title: Optional[str]
     meta_description: Optional[str]
+    fallback_used: bool = False
 
 
 @dataclass(slots=True)

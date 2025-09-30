@@ -104,7 +104,7 @@ class WebRenewalPipeline:
         renewal_plan: RenewalPlan = self.plan.run((a11y_report, seo_report, security_report, tech_fingerprint, media_report, nav_model))
         write_json(renewal_plan, "plan.json")
 
-        content_bundle: ContentBundle = self.rewrite.run((content_extract, renewal_plan))
+        content_bundle: ContentBundle = self.rewrite.run((domain, content_extract, renewal_plan))
         write_json(content_bundle, "content_new.json")
 
         theme_tokens: ThemeTokens = self.theming.run(renewal_plan)
@@ -116,10 +116,10 @@ class WebRenewalPipeline:
         preview_index: PreviewIndex = self.comparator.run((crawl_result, "newsite"))
         write_json(preview_index, "preview.json")
 
-        offer_doc: OfferDoc = self.offer.run((renewal_plan, preview_index))
+        offer_doc: OfferDoc = self.offer.run((domain, renewal_plan, preview_index))
         write_json(offer_doc, "offer.json")
 
-        memory_record: MemoryRecord = self.memory.run((renewal_plan, offer_doc))
+        memory_record: MemoryRecord = self.memory.run((domain, renewal_plan, offer_doc))
         write_json(memory_record, "memory.json")
 
         self.logger.info("Pipeline execution finished. Outputs stored in %s", SANDBOX_DIR)
