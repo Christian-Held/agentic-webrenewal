@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from itertools import zip_longest
 from typing import Any, List, Optional, Tuple, Union
 
 from openai import OpenAI, OpenAIError
@@ -170,20 +171,53 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
         block_payload = data.get("blocks")
         if not isinstance(block_payload, list):
             raise ValueError("Missing blocks in LLM response")
-        if len(block_payload) != len(content.sections):
-            raise ValueError("LLM returned an unexpected number of blocks")
+        expected_sections = len(content.sections)
+        received_blocks = len(block_payload)
+        if received_blocks != expected_sections:
+            self.logger.warning(
+                "LLM returned %s blocks for %s sections; aligning output",
+                received_blocks,
+                expected_sections,
+            )
 
         blocks: List[ContentBlock] = []
-        for index, (section, block_data) in enumerate(zip(content.sections, block_payload), start=1):
+        for index, (section, block_data) in enumerate(
+            zip_longest(content.sections, block_payload),
+            start=1,
+        ):
+            if block_data is None:
+                if section is None:
+                    # Defensive branch: no section or block (zip_longest should avoid this)
+                    self.logger.debug("Skipping empty section/block at index %s", index)
+                    continue
+                self.logger.debug(
+                    "Filling missing LLM block with original content for section %s", index
+                )
+                fallback_body = section.text or ""
+                blocks.append(
+                    ContentBlock(
+                        title=section.title or f"Section {index}",
+                        body=fallback_body,
+                    )
+                )
+                continue
+
             if not isinstance(block_data, dict):
                 raise ValueError("Block data is not an object")
+
             title = block_data.get("title")
             body = block_data.get("body")
             if not isinstance(body, str) or not body.strip():
                 raise ValueError("Invalid block body returned by LLM")
+
+            if section is None:
+                fallback_title = title or f"Additional Section {index}"
+            else:
+                fallback_title = title or section.title or f"Section {index}"
+
             blocks.append(
                 ContentBlock(
-                    title=title or section.title or f"Section {index}",
+                    title=fallback_title,
                     body=body.strip(),
                 )
             )
