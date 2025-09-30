@@ -87,6 +87,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
                 navigation=augmented_navigation,
                 home_href="index.html",
                 meta_title=(block.title or content.meta_title or "Renewed Page"),
+                fallback_used=content.fallback_used,
             )
             (output_dir / filename).write_text(page_html, encoding="utf-8")
 

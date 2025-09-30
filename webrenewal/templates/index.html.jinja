@@ -52,6 +52,9 @@
         margin-bottom: 1.5rem;
         box-shadow: 0 5px 20px rgba(11, 114, 133, 0.08);
       }
+      section.fallback-block {
+        border: 2px dashed #d14343;
+      }
       h2 {
         margin-top: 0;
       }
@@ -59,6 +62,16 @@
         line-height: 1.6;
         white-space: pre-line;
       }
+
+      .fallback-banner {
+        background: #ffe5e5;
+        border: 1px solid #d14343;
+        color: #8b1c1c;
+        padding: 1rem 1.25rem;
+        border-radius: var(--border-radius);
+        margin-bottom: 1.5rem;
+      }
+
       footer {
         text-align: center;
         padding: 1rem;
@@ -81,8 +94,13 @@
       </nav>
     </header>
     <main>
+      {% if content.fallback_used %}
+      <div class="fallback-banner">
+        Automatisches LLM-Upgrade war nicht möglich. Bitte Inhalte prüfen und nach einer erfolgreichen OpenAI-Ausführung aktualisieren.
+      </div>
+      {% endif %}
       {% for block in content.blocks %}
-      <section>
+      <section class="{{ 'fallback-block' if content.fallback_used else '' }}">
         <h2>{{ block.title }}</h2>
         <p>{{ block.body }}</p>
       </section>

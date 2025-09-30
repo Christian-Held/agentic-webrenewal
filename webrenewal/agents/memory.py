@@ -5,24 +5,26 @@ from __future__ import annotations
 from typing import Dict
 
 from .base import Agent
-from ..models import MemoryRecord, OfferDoc, PreviewIndex, RenewalPlan
+from ..models import MemoryRecord, OfferDoc, RenewalPlan
+from ..utils import normalise_domain
 
 
-class MemoryAgent(Agent[tuple[RenewalPlan, OfferDoc], MemoryRecord]):
+class MemoryAgent(Agent[tuple[str, RenewalPlan, OfferDoc], MemoryRecord]):
     """Persist a summary payload in memory storage."""
 
     def __init__(self) -> None:
         super().__init__(name="A16.Memory")
         self._memory: Dict[str, MemoryRecord] = {}
 
-    def run(self, data: tuple[RenewalPlan, OfferDoc]) -> MemoryRecord:
-        plan, offer = data
+    def run(self, data: tuple[str, RenewalPlan, OfferDoc]) -> MemoryRecord:
+        domain, plan, offer = data
         payload = {
             "goals": ", ".join(plan.goals),
             "hours": str(plan.estimate_hours),
             "offer_price": f"{offer.pricing_eur:.2f}",
         }
-        record = MemoryRecord(key="physioheld", payload=payload)
+        key = normalise_domain(domain) or domain.strip()
+        record = MemoryRecord(key=key, payload=payload)
         self._memory[record.key] = record
         return record
 
