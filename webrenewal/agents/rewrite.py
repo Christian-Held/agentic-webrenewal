@@ -226,6 +226,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                 response = client.responses.create(**request_kwargs)
                 span.note(mode="fallback_request")
 
+
         raw_output = self._extract_response_text(response)
         if not raw_output:
             raise ValueError("No textual output returned by LLM")
@@ -252,6 +253,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
             raise ValueError("Missing blocks in LLM response")
         expected_sections = len(content.sections)
         received_blocks = len(block_payload)
+
         log_event(
             self.logger,
             logging.DEBUG,
