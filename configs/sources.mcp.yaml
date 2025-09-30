@@ -1,0 +1,31 @@
+sources:
+  - url: "https://mcp.so/"
+    label: "mcp.so"
+  - url: "https://glama.ai/mcp"
+    label: "glama.ai/mcp"
+  - url: "https://smithery.ai/"
+    label: "smithery.ai"
+  - url: "https://huggingface.co/blog/LLMhacker/top-11-essential-mcp-libraries"
+    label: "HF Blog: Top 11 Essential MCP Libraries"
+
+rubric:
+  weights:
+    fit: 3
+    maturity: 2
+    license: 2
+    compliance: 2
+    performance: 2
+    docs: 1
+    interop: 1
+    observability: 1
+
+categories:
+  - browser
+  - fetch
+  - filesystem
+  - memory
+  - rag
+  - search
+  - codegen
+  - qa
+  - other
