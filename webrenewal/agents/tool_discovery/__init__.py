@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from .base import Agent
+from ..common import Agent
 from ..models import ToolCatalog, ToolInfo
 
 
