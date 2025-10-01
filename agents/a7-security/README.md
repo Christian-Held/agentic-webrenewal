@@ -170,3 +170,17 @@ Ziel: **frühe Identifikation von Risiken**, die in das Renewal-Angebot (A15) ei
 
 📄 **Fazit**:
 A7 ist der **Sicherheitsprüfer**. Er verbindet technische Header-Checks, TLS-Validierung und bekannte Schwachstellen mit verständlichen Reports. Grundlage für **Compliance, Risikoberatung und Preisschätzung** im Angebot.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Validiert Kern-Sicherheitsheader (CSP, HSTS, X-Frame-Options, X-Content-Type-Options).
+- Aggregiert Findings in einem SecurityReport mit Score-Abzug.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- TLS-Konfiguration, Mixed-Content und Cookie-Flags automatisiert prüfen.
+- Empfehlungen nach Branchen-Compliance (z. B. GDPR, HIPAA) anreichern.
+
