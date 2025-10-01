@@ -40,6 +40,12 @@ class ProviderResponse:
 class LLMClient(abc.ABC):
     """Interface for provider specific clients."""
 
+    @property
+    def supports_json_mode(self) -> bool:
+        """Return whether the client can request native JSON mode."""
+
+        return False
+
     async def complete(
         self,
         messages: Sequence[MessagePayload],
@@ -294,11 +300,17 @@ class OpenAICompatibleClient(LLMClient):
         api_key: str,
         timeout: float = 60.0,
         headers: Optional[Dict[str, str]] = None,
+        supports_json_mode: bool = True,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout = timeout
         self._headers = headers or {}
+        self._supports_json_mode = supports_json_mode
+
+    @property
+    def supports_json_mode(self) -> bool:
+        return self._supports_json_mode
 
     def _build_headers(self) -> Dict[str, str]:
         headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
@@ -361,6 +373,7 @@ class DeepSeekClient(OpenAICompatibleClient):
         super().__init__(
             base_url=base_url or "https://api.deepseek.com/v1",
             api_key=api_key,
+            supports_json_mode=False,
         )
 
 
@@ -371,6 +384,7 @@ class GroqClient(OpenAICompatibleClient):
         super().__init__(
             base_url=base_url or "https://api.groq.com/openai/v1",
             api_key=api_key,
+            supports_json_mode=False,
         )
 
 

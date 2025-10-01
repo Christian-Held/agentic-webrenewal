@@ -213,9 +213,20 @@ Ressourcen:
 - `llm://last/{provider}/{model}` – letzter Completion-Output
 - `llm://trace/{id}` – vollständiger Trace inklusive Retries und Token-Nutzung
 
+Die URIs orientieren sich an den MCP-Konventionen: `llm://trace/{id}` liefert den Trace
+zum exakten Identifier (z. B. `llm://trace/abc123` → Trace `abc123`). Über
+`llm://last/{provider}/{model}` wird der zuletzt gespeicherte Trace für das Paar aus
+Provider und Modell geladen (z. B. `llm://last/openai/gpt-4o`).
+
 Die Antworten sind strukturierte Pydantic-Modelle. Fehlgeschlagene JSON-Parsings führen
 zu einem zweiten Versuch mit strengeren Instruktionen; bei erneutem Fehlschlag wird der
 Trace persistiert und eine aussagekräftige Fehlermeldung ausgelöst.
+
+`llm.complete_json` nutzt – je nach Provider – entweder den nativen JSON-Mode (falls vom
+Client unterstützt) oder erzwingt über einen System-Prompt eine strikt valide JSON-Ausgabe.
+Bei Parsing- oder Validierungsfehlern wird automatisch mit einer verstärkten Instruktion
+erneut versucht, bevor ein Fehler propagiert wird. Sämtliche Aufrufe werden mit Prompt,
+Rohantwort und Metadaten im Trace-Log festgehalten.
 
 Alle Artefakte landen in `sandbox/`, inklusive Crawl-Daten, Analysen, Plan, Rewrite,
 Theming-Tokens, einer vollständigen Kopie der Originalseiten (`sandbox/original/`),

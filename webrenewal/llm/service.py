@@ -10,7 +10,7 @@ from typing import Any, Dict, List, MutableMapping, Sequence, Tuple, Type
 import jsonschema
 from pydantic import BaseModel, ValidationError
 
-from ..tracing import log_event
+from ..tracing import log_event, safe_json
 from .clients import LLMClient, ProviderResponse
 from .models import (
     CompletionMetadata,
@@ -41,6 +41,31 @@ def _to_model_messages(messages: Sequence[MessageType]) -> List[Message]:
         content = message.get("content", "")
         result.append(Message(role=role, content=str(content)))
     return result
+
+
+def _prompt_preview(messages: Sequence[MessageType]) -> str:
+    joined = "\n".join(
+        f"{str(message.get('role', 'user'))}: {str(message.get('content', ''))}"
+        for message in messages
+    )
+    return truncate_preview(joined)
+
+
+def _build_json_instruction(
+    schema_dict: Dict[str, Any] | None, schema_model: Type[BaseModel] | None
+) -> str:
+    if schema_model is not None:
+        schema_description = json.dumps(
+            schema_model.model_json_schema(), ensure_ascii=False, sort_keys=True
+        )
+    elif schema_dict is not None:
+        schema_description = json.dumps(schema_dict, ensure_ascii=False, sort_keys=True)
+    else:
+        schema_description = "the requested structure"
+    return (
+        "Return ONLY valid JSON with no explanations. The payload must strictly conform "
+        f"to {schema_description}."
+    )
 
 
 def _load_schema(schema: str | Dict[str, Any] | Type[BaseModel] | None) -> Tuple[
@@ -140,6 +165,8 @@ class LLMService:
                 duration_ms=round(duration_ms, 2),
                 usage=response.usage.model_dump() if response.usage else None,
                 preview=truncate_preview(response.text),
+                prompt_preview=_prompt_preview(messages),
+                raw_preview=truncate_preview(str(safe_json(response.raw))),
             )
             return completion
         except Exception as exc:  # pragma: no cover - error path validated via tests elsewhere
@@ -162,6 +189,8 @@ class LLMService:
                 provider=self._provider,
                 model=model,
                 error=repr(exc),
+                prompt_preview=_prompt_preview(messages),
+                raw_preview=truncate_preview(str(safe_json(response.raw))) if response else None,
             )
             raise
 
@@ -176,10 +205,20 @@ class LLMService:
     ) -> JSONCompletion:
         messages = _ensure_messages(prompt)
         schema_dict, schema_model = _load_schema(schema)
-        retry_messages = list(messages)
         attempts = 0
         entry = self._tracer.start(self._provider, model)
         last_error: Exception | None = None
+        instruction_text = retry_instruction or _build_json_instruction(schema_dict, schema_model)
+        supports_json_mode = self._client.supports_json_mode
+        base_messages = list(messages)
+        if not supports_json_mode:
+            base_messages = base_messages + [
+                {"role": "system", "content": instruction_text},
+            ]
+        retry_messages = list(base_messages)
+        last_prompt_messages: Sequence[MessageType] = list(retry_messages)
+        last_response_text: str | None = None
+        last_response_raw: Any | None = None
         while attempts < 2:
             attempts += 1
             start = time.perf_counter()
@@ -187,12 +226,15 @@ class LLMService:
             error: Exception | None = None
             parsed_payload: Any | None = None
             try:
+                last_prompt_messages = list(retry_messages)
                 response = await self._client.complete(
                     retry_messages,
                     model=model,
                     temperature=temperature,
-                    response_format="json_object",
+                    response_format="json_object" if supports_json_mode else None,
                 )
+                last_response_text = response.text
+                last_response_raw = response.raw
                 parsed_payload = json.loads(response.text)
                 if schema_dict is not None:
                     jsonschema.validate(instance=parsed_payload, schema=schema_dict)
@@ -236,6 +278,11 @@ class LLMService:
                     duration_ms=round(duration_ms, 2),
                     usage=usage.model_dump() if usage else None,
                     preview=truncate_preview(response.text),
+                    prompt_preview=_prompt_preview(last_prompt_messages),
+                    raw_preview=truncate_preview(str(safe_json(response.raw))),
+                    parsed_preview=truncate_preview(
+                        str(safe_json(payload_model.model_dump(mode="json")))
+                    ),
                 )
                 return completion
             except Exception as exc:
@@ -251,6 +298,9 @@ class LLMService:
                     usage=response.usage if response else None,
                     error=exc,
                 )
+                if response is not None:
+                    last_response_text = response.text
+                    last_response_raw = response.raw
                 log_event(
                     LOGGER,
                     logging.WARNING,
@@ -259,6 +309,10 @@ class LLMService:
                     model=model,
                     attempt=attempts,
                     error=repr(exc),
+                    prompt_preview=_prompt_preview(last_prompt_messages),
+                    raw_preview=truncate_preview(str(safe_json(response.raw)))
+                    if response
+                    else None,
                 )
                 if not isinstance(
                     exc, (json.JSONDecodeError, jsonschema.ValidationError, ValidationError)
@@ -267,14 +321,29 @@ class LLMService:
                 last_error = exc
                 if attempts >= 2:
                     break
-                retry_messages = list(messages) + [
-                    {
-                        "role": "system",
-                        "content": retry_instruction
-                        or "Return valid JSON only, matching the provided schema exactly.",
-                    }
-                ]
+                retry_messages = list(base_messages)
+                retry_prompt = instruction_text
+                if last_error:
+                    retry_prompt = (
+                        f"{instruction_text} Previous error: {last_error}."
+                    )
+                retry_messages.append({"role": "system", "content": retry_prompt})
 
+        log_event(
+            LOGGER,
+            logging.ERROR,
+            "llm.complete.json.error",
+            provider=self._provider,
+            model=model,
+            error=repr(last_error) if last_error else None,
+            prompt_preview=_prompt_preview(last_prompt_messages),
+            raw_preview=truncate_preview(str(safe_json(last_response_raw)))
+            if last_response_raw is not None
+            else None,
+            response_preview=truncate_preview(last_response_text or "")
+            if last_response_text
+            else None,
+        )
         raise JSONValidationError(
             f"Failed to parse JSON response from {self._provider}:{model}: {last_error}"
         )

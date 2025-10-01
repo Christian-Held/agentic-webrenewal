@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any, Dict, Tuple
+from urllib.parse import unquote, urlparse
 
 import anyio
 from mcp.server import Server
@@ -162,13 +163,28 @@ async def read_resource(request: types.ReadResourceRequest):
     if uri == "llm://providers":
         data = list_available_providers()
     elif uri.startswith("llm://trace/"):
-        trace_id = uri.split("/", maxsplit=2)[-1]
+        parsed = urlparse(uri)
+        if parsed.netloc != "trace":
+            return server._make_error_result(f"Unsupported resource {uri}")
+        trace_id = unquote(parsed.path.lstrip("/"))
+        if not trace_id:
+            return server._make_error_result("Trace id missing")
         entry = tracer.get_trace(trace_id)
         if entry is None:
             return server._make_error_result(f"Trace {trace_id} not found")
         data = entry.model_dump(mode="json")
     elif uri.startswith("llm://last/"):
-        _, _, provider, model = uri.split("/", 3)
+        parsed = urlparse(uri)
+        if parsed.netloc != "last":
+            return server._make_error_result(f"Unsupported resource {uri}")
+        remainder = parsed.path.lstrip("/")
+        if not remainder or "/" not in remainder:
+            return server._make_error_result("Invalid last trace URI")
+        provider_raw, model_raw = remainder.split("/", 1)
+        provider = unquote(provider_raw)
+        model = unquote(model_raw)
+        if not provider or not model:
+            return server._make_error_result("Invalid last trace URI")
         entry = tracer.get_last_trace(provider, model)
         if entry is None:
             return server._make_error_result("No trace for provider/model")
@@ -177,8 +193,9 @@ async def read_resource(request: types.ReadResourceRequest):
         return server._make_error_result(f"Unsupported resource {uri}")
 
     content = [
-        types.TextContent(
-            type="text",
+        types.TextResourceContents(
+            uri=uri,
+            mimeType="application/json",
             text=json.dumps(data, indent=2, ensure_ascii=False),
         )
     ]
