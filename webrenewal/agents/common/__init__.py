@@ -18,6 +18,12 @@ class Agent(ABC, Generic[InputT, OutputT]):
         self._logger = logger or logging.getLogger(name)
 
     @property
+    def name(self) -> str:
+        """Return the human readable name for the agent."""
+
+        return self._name
+
+    @property
     def logger(self) -> logging.Logger:
         """Return the logger associated with the agent."""
 
