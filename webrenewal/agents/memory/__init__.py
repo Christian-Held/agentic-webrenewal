@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from .base import Agent
+from ..common import Agent
 from ..models import MemoryRecord, OfferDoc, RenewalPlan
 from ..utils import normalise_domain
 
