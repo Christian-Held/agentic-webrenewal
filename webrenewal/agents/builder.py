@@ -56,14 +56,12 @@ def _merge_navigation(nav: NavModel, blocks: Iterable[tuple[ContentBlock, str]])
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 
-
 _SECTION_PARTIALS: Mapping[str, str] = {
     "hero": "sections/hero.jinja",
     "faq": "sections/faq.jinja",
     "contact": "sections/contact.jinja",
     "text": "sections/text.jinja",
 }
-
 
 _FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
     "vanilla": {
@@ -117,7 +115,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
         )
         self._env.globals["FRAMEWORK_PRESETS"] = _FRAMEWORK_PRESETS
         self._env.globals["SECTION_PARTIALS"] = _SECTION_PARTIALS
-
+        
     def run(self, data: tuple[ContentBundle, ThemeTokens, NavModel]) -> BuildArtifact:
         content, theme, nav = data
         output_dir = SANDBOX_DIR / "newsite"
