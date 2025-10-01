@@ -9,6 +9,84 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field, field_validator
+
+
+class RenewalConfig(BaseModel):
+    """Central configuration shared by CLI and future API entrypoints."""
+
+    domain: str = Field(..., description="Domain or URL to process")
+    renewal_mode: str = Field(
+        default="full",
+        description="Strategy for renewing the target site",
+    )
+    css_framework: str = Field(
+        default="vanilla",
+        description="Preferred CSS framework or library name",
+    )
+    theme_style: str = Field(
+        default="",
+        description="Comma-separated styling directives passed to theming",
+    )
+    llm_provider: str = Field(
+        default="openai",
+        description="LLM provider identifier",
+    )
+    llm_model: str | None = Field(
+        default=None,
+        description="Specific model name for the chosen provider",
+    )
+    log_level: str = Field(
+        default="INFO",
+        description="Desired logging verbosity",
+    )
+
+    @field_validator("domain", mode="before")
+    @classmethod
+    def _ensure_domain(cls, value: str) -> str:
+        if value is None:
+            raise ValueError("Domain must be provided")
+        text = str(value).strip()
+        if not text:
+            raise ValueError("Domain must be a non-empty string")
+        return text
+
+    @field_validator("renewal_mode", mode="before")
+    @classmethod
+    def _normalise_mode(cls, value: str | None) -> str:
+        candidate = (value or "full").strip().lower()
+        allowed = {"full", "text-only", "seo-only", "design-only"}
+        if candidate not in allowed:
+            raise ValueError(
+                f"Unsupported renewal_mode '{value}'. Expected one of: {', '.join(sorted(allowed))}."
+            )
+        return candidate
+
+    @field_validator("css_framework", mode="before")
+    @classmethod
+    def _normalise_framework(cls, value: str | None) -> str:
+        return (value or "vanilla").strip()
+
+    @field_validator("theme_style", mode="before")
+    @classmethod
+    def _normalise_theme(cls, value: str | None) -> str:
+        return (value or "").strip()
+
+    @field_validator("llm_provider", mode="before")
+    @classmethod
+    def _normalise_provider(cls, value: str | None) -> str:
+        return (value or "openai").strip()
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def _normalise_log_level(cls, value: str | None) -> str:
+        return (value or "INFO").strip().upper()
+
+    def style_hints(self) -> list[str]:
+        """Return individual style hints derived from the theme_style field."""
+
+        return [hint.strip() for hint in self.theme_style.split(",") if hint.strip()]
+
 
 @dataclass(slots=True)
 class Serializable:
@@ -241,6 +319,7 @@ class DiffResult(Serializable):
 @dataclass(slots=True)
 class PreviewIndex(Serializable):
     diffs: List[DiffResult]
+    style_deltas: List[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

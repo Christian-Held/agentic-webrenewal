@@ -20,6 +20,7 @@ from webrenewal.agents.tech_fingerprint import TechFingerprintAgent
 from webrenewal.agents.tool_discovery import ToolDiscoveryAgent
 from webrenewal.models import ContentBundle, ContentBlock
 from webrenewal.pipeline import WebRenewalPipeline
+from webrenewal.models import RenewalConfig
 
 
 class StaticAgent:
@@ -79,7 +80,16 @@ def test_pipeline_creates_expected_artifacts(
 
     logger = logging.getLogger("pipeline-integration")
     logger.setLevel(logging.CRITICAL)
-    pipeline = WebRenewalPipeline(logger=logger, css_framework="vanilla", llm_provider="openai")
+    config = RenewalConfig(
+        domain="https://example.com",
+        renewal_mode="full",
+        css_framework="vanilla",
+        theme_style="",
+        llm_provider="openai",
+        llm_model=None,
+        log_level="CRITICAL",
+    )
+    pipeline = WebRenewalPipeline(renewal_config=config, logger=logger)
 
     pipeline.tool_discovery = StaticAgent("A0.ToolDiscovery", prepared_outputs["tool_catalog"])
     pipeline.scope = StaticAgent("A1.Scope", prepared_outputs["scope_plan"])
@@ -96,7 +106,7 @@ def test_pipeline_creates_expected_artifacts(
     pipeline.theming = StaticAgent("A12.Theming", prepared_outputs["theme"])
     # keep builder/comparator/offer/memory agents to exercise real behaviour
 
-    pipeline.execute("https://example.com")
+    pipeline.execute()
 
     artifacts = {path.name for path in sandbox_dir.iterdir() if path.is_file()}
     expected_files = {

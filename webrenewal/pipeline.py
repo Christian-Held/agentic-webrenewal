@@ -37,6 +37,7 @@ from .models import (
     MemoryRecord,
     OfferDoc,
     PreviewIndex,
+    RenewalConfig,
     RenewalPlan,
     ScopePlan,
     ThemeTokens,
@@ -52,20 +53,23 @@ class WebRenewalPipeline:
 
     def __init__(
         self,
+        renewal_config: RenewalConfig,
+        *,
         logger: Optional[logging.Logger] = None,
         config: Optional[PipelineConfig] = None,
-        *,
-        css_framework: str = "vanilla",
-        llm_provider: str = "openai",
-        llm_model: str | None = None,
     ) -> None:
         self.logger = logger or logging.getLogger("pipeline")
         self.config = config or load_pipeline_config()
-        self._llm_provider = llm_provider
+        self._renewal_config = renewal_config
+        self._renewal_mode = renewal_config.renewal_mode
+        self._style_hints = renewal_config.style_hints()
+        self._css_framework = renewal_config.css_framework
+        self._theme_style = renewal_config.theme_style
+        self._llm_provider = renewal_config.llm_provider
         self._llm_client: LLMService | None = create_llm_service(
-            llm_provider, tracer=get_tracer()
+            self._llm_provider, tracer=get_tracer()
         )
-        resolved_model = llm_model or default_model_for(llm_provider)
+        resolved_model = renewal_config.llm_model or default_model_for(self._llm_provider)
         self._llm_model = resolved_model
         if self._llm_client is None:
             log_event(
@@ -99,22 +103,39 @@ class WebRenewalPipeline:
             llm_client=self._llm_client,
         )
         self.theming = ThemingAgent(
-            design_directives=self.config.design_directives
+            design_directives=self.config.design_directives,
+            theme_style=self._theme_style,
+            css_framework=self._css_framework,
         )
-        self.builder = BuilderAgent(css_framework=css_framework)
-        self.comparator = ComparatorAgent()
+        self.builder = BuilderAgent(
+            css_framework=self._css_framework,
+            style_hints=self._theme_style,
+        )
+        self.comparator = ComparatorAgent(
+            renewal_mode=self._renewal_mode,
+            style_hints=self._theme_style,
+            css_framework=self._css_framework,
+        )
         self.offer = OfferAgent()
         self.memory = MemoryAgent()
 
-    def execute(self, domain: str) -> None:
+    def execute(self) -> None:
+        domain = self._renewal_config.domain
         log_event(
             self.logger,
             logging.INFO,
             "pipeline.start",
             domain=domain,
             sandbox=str(SANDBOX_DIR),
+            renewal_mode=self._renewal_mode,
+            css_framework=self._css_framework,
         )
         SANDBOX_DIR.mkdir(exist_ok=True)
+        config_payload = json.dumps(
+            self._renewal_config.model_dump(), indent=2, ensure_ascii=False
+        )
+        config_path = write_text(config_payload, "config.json")
+        self._record_artifact("config.json", config_path)
 
         tool_catalog: ToolCatalog = self._run_agent(
             self.tool_discovery, None, stage="tool_catalog"
@@ -173,26 +194,55 @@ class WebRenewalPipeline:
         )
         self._record_artifact("plan.json", write_json(renewal_plan, "plan.json"))
 
-        content_bundle: ContentBundle = self._run_agent(
-            self.rewrite, (domain, content_extract, renewal_plan), stage="rewrite"
-        )
-        self._record_artifact(
-            "content_new.json", write_json(content_bundle, "content_new.json")
-        )
+        run_rewrite = self._renewal_mode in {"full", "text-only"}
+        run_design = self._renewal_mode in {"full", "design-only"}
 
-        theme_tokens: ThemeTokens = self._run_agent(
-            self.theming, renewal_plan, stage="theming"
-        )
-        self._record_artifact("theme.json", write_json(theme_tokens, "theme.json"))
+        content_bundle: ContentBundle | None = None
+        if run_rewrite:
+            content_bundle = self._run_agent(
+                self.rewrite, (domain, content_extract, renewal_plan), stage="rewrite"
+            )
+            self._record_artifact(
+                "content_new.json", write_json(content_bundle, "content_new.json")
+            )
+        elif run_design:
+            content_bundle = self.rewrite._fallback_bundle(domain, content_extract)
+            log_event(
+                self.logger,
+                logging.INFO,
+                "pipeline.design_only.content",
+                blocks=len(content_bundle.blocks),
+                fallback=content_bundle.fallback_used,
+            )
+            self._record_artifact(
+                "content_new.json", write_json(content_bundle, "content_new.json")
+            )
 
-        build_artifact = self._run_agent(
-            self.builder, (content_bundle, theme_tokens, nav_model), stage="build"
-        )
-        self._record_artifact("build.json", write_json(build_artifact, "build.json"))
+        theme_tokens: ThemeTokens | None = None
+        if run_design:
+            theme_tokens = self._run_agent(
+                self.theming, renewal_plan, stage="theming"
+            )
+            self._record_artifact("theme.json", write_json(theme_tokens, "theme.json"))
 
-        preview_index: PreviewIndex = self._run_agent(
-            self.comparator, (crawl_result, "newsite"), stage="compare"
-        )
+        build_artifact: BuildArtifact | None = None
+        if run_design and content_bundle and theme_tokens:
+            build_artifact = self._run_agent(
+                self.builder,
+                (content_bundle, theme_tokens, nav_model),
+                stage="build",
+            )
+            self._record_artifact("build.json", write_json(build_artifact, "build.json"))
+
+        if run_design and build_artifact:
+            preview_index: PreviewIndex = self._run_agent(
+                self.comparator, (crawl_result, "newsite"), stage="compare"
+            )
+        else:
+            preview_index = PreviewIndex(
+                diffs=[],
+                style_deltas=self._style_notes(),
+            )
         self._record_artifact("preview.json", write_json(preview_index, "preview.json"))
 
         offer_doc: OfferDoc = self._run_agent(
@@ -323,24 +373,31 @@ class WebRenewalPipeline:
             path=str(path),
         )
 
+    def _style_notes(self) -> list[str]:
+        """Return human-readable descriptions of the requested styling."""
+
+        notes: list[str] = []
+        if self._css_framework:
+            notes.append(f"Framework target: {self._css_framework}")
+        if self._style_hints:
+            notes.append(f"Style hints: {', '.join(self._style_hints)}")
+        return notes
+
 
 def run_pipeline(
-    domain: str,
-    log_level: int = logging.INFO,
+    config: RenewalConfig,
     *,
-    config: Optional[PipelineConfig] = None,
-    css_framework: str = "vanilla",
-    llm_provider: str = "openai",
-    llm_model: str | None = None,
+    pipeline_config: Optional[PipelineConfig] = None,
 ) -> None:
-    configure_logging(level=log_level)
+    level = getattr(logging, str(config.log_level).upper(), logging.INFO)
+    if isinstance(level, str):
+        level = logging.INFO
+    configure_logging(level=level)
     pipeline = WebRenewalPipeline(
-        config=config,
-        css_framework=css_framework,
-        llm_provider=llm_provider,
-        llm_model=llm_model,
+        renewal_config=config,
+        config=pipeline_config,
     )
-    pipeline.execute(domain)
+    pipeline.execute()
 
 
 __all__ = ["WebRenewalPipeline", "run_pipeline"]

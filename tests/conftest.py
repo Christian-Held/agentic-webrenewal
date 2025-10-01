@@ -216,7 +216,7 @@ def sample_content_bundle(sample_content_extract: ContentExtract) -> ContentBund
 def sample_preview_index() -> PreviewIndex:
     """Return a preview index with one diff entry."""
 
-    return PreviewIndex(diffs=[])
+    return PreviewIndex(diffs=[], style_deltas=[])
 
 
 @pytest.fixture

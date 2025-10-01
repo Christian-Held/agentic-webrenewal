@@ -52,9 +52,11 @@ def test_builder_agent_generates_unique_slugs(builder_agent: BuilderAgent, sampl
     assert len(set(page_files)) == len(page_files)
 
 
-def test_builder_agent_rejects_unknown_framework() -> None:
-    """Given an invalid framework When constructing Then a ValueError is raised."""
+def test_builder_agent_supports_custom_framework() -> None:
+    """Given a custom framework When constructing Then metadata reflects the request."""
 
-    with pytest.raises(ValueError):
-        BuilderAgent(css_framework="unknown")
+    agent = BuilderAgent(css_framework="custom-xyz", style_hints="rounded buttons")
+
+    assert agent._framework_meta["is_custom"] is True  # type: ignore[attr-defined]
+    assert agent._framework_meta["style_hints"] == "rounded buttons"  # type: ignore[attr-defined]
 
