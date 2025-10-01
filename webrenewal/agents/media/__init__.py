@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from .base import Agent
+from ..common import Agent
 from ..models import CrawlResult, MediaInfo, MediaReport
 
 
