@@ -89,6 +89,40 @@ _FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
 }
 
 
+_SECTION_PARTIALS: Mapping[str, str] = {
+    "hero": "sections/hero.jinja",
+    "faq": "sections/faq.jinja",
+    "contact": "sections/contact.jinja",
+    "text": "sections/text.jinja",
+}
+
+
+_FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
+    "vanilla": {
+        "name": "vanilla",
+        "css_links": [],
+        "body_class": "vanilla-scope",
+        "description": "Built-in modern layout with custom CSS variables.",
+    },
+    "bootstrap": {
+        "name": "bootstrap",
+        "css_links": [
+            "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css",
+        ],
+        "body_class": "bootstrap-scope",
+        "description": "Bootstrap 5 utility classes available via CDN.",
+    },
+    "tailwind": {
+        "name": "tailwind",
+        "css_links": [
+            "https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css",
+        ],
+        "body_class": "tailwind-scope",
+        "description": "Tailwind utility classes for rapid prototyping.",
+    },
+}
+
+
 def _build_css_variables(theme: ThemeTokens) -> Dict[str, str]:
     """Flatten the theme tokens into CSS custom properties."""
 
@@ -115,7 +149,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
         )
         self._env.globals["FRAMEWORK_PRESETS"] = _FRAMEWORK_PRESETS
         self._env.globals["SECTION_PARTIALS"] = _SECTION_PARTIALS
-        
+
     def run(self, data: tuple[ContentBundle, ThemeTokens, NavModel]) -> BuildArtifact:
         content, theme, nav = data
         output_dir = SANDBOX_DIR / "newsite"

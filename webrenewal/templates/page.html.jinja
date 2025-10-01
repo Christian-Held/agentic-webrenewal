@@ -279,7 +279,9 @@
     {% if block.type == 'hero' and block.data is mapping %}
       {% set header_subtitle = block.data.get('tagline') or block.data.get('subtitle') %}
     {% endif %}
-    {% include "_header.jinja" with header_title=(block.title or meta_title) header_subtitle=header_subtitle home_href=home_href %}
+    {% with header_title=(block.title or meta_title), header_subtitle=header_subtitle, home_href=home_href %}
+      {% include "_header.jinja" %}
+    {% endwith %}
     <main>
       {% if fallback_used %}
       <div class="fallback-banner">
