@@ -9,7 +9,15 @@ import os
 from itertools import zip_longest
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from ..llm import BaseLLMClient, LLMError, create_llm_client, default_model_for
+from pydantic import BaseModel, Field, field_validator
+
+from ..llm import (
+    JSONCompletion,
+    JSONValidationError,
+    LLMService,
+    create_llm_service,
+    default_model_for,
+)
 
 from .base import Agent
 from ..models import ContentBlock, ContentBundle, ContentExtract, RenewalPlan
@@ -25,6 +33,39 @@ RewriteInput = Union[
 _SECTION_TYPES = {"hero", "faq", "contact", "text"}
 
 
+class RewriteBlockModel(BaseModel):
+    """Structured representation of a rewritten block."""
+
+    title: str
+    body: str
+    type: str
+    data: Dict[str, Any] | None = None
+
+    @field_validator("title", "body", "type")
+    @classmethod
+    def _ensure_text(cls, value: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("Block fields must be non-empty strings")
+        return value.strip()
+
+
+class RewriteResponseModel(BaseModel):
+    """JSON schema returned by the rewrite LLM."""
+
+    meta_title: str | None = None
+    meta_description: str | None = None
+    blocks: List[RewriteBlockModel] = Field(default_factory=list)
+
+    @field_validator("blocks")
+    @classmethod
+    def _ensure_blocks(
+        cls, value: List[RewriteBlockModel]
+    ) -> List[RewriteBlockModel]:
+        if not value:
+            raise ValueError("Blocks must not be empty")
+        return value
+
+
 class RewriteAgent(Agent[RewriteInput, ContentBundle]):
     """Produce refreshed copy for the website."""
 
@@ -34,7 +75,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
         temperature: float = 0.4,
         *,
         max_parallel_requests: int = 4,
-        llm_client: Optional[BaseLLMClient] = None,
+        llm_client: Optional[LLMService] = None,
         llm_provider: Optional[str] = None,
     ) -> None:
         super().__init__(name="A11.Rewrite")
@@ -46,7 +87,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
         resolved_model = model or default_model_for(self._llm_provider)
         self._model = resolved_model
         self._temperature = temperature
-        self._llm_client: Optional[BaseLLMClient] = llm_client
+        self._llm_client: Optional[LLMService] = llm_client
         self._max_parallel = max(1, max_parallel_requests)
 
     def run(self, data: RewriteInput) -> ContentBundle:  # type: ignore[override]
@@ -84,7 +125,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
 
         try:
             bundle = self._rewrite_with_llm(client, domain, content, plan)
-        except (LLMError, ValueError, json.JSONDecodeError) as exc:
+        except Exception as exc:
             log_event(
                 self.logger,
                 logging.WARNING,
@@ -142,15 +183,15 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
 
         return resolved_domain, content, plan
 
-    def _get_client(self) -> Optional[BaseLLMClient]:
+    def _get_client(self) -> Optional[LLMService]:
         """Initialise the configured LLM client if credentials are present."""
 
         if self._llm_client is None:
-            self._llm_client = create_llm_client(self._llm_provider)
+            self._llm_client = create_llm_service(self._llm_provider)
         return self._llm_client
 
     def _rewrite_with_llm(
-        self, client: BaseLLMClient, domain: str, content: ContentExtract, plan: RenewalPlan
+        self, client: LLMService, domain: str, content: ContentExtract, plan: RenewalPlan
     ) -> ContentBundle:
         """Leverage the configured LLM provider to refresh the site copy."""
 
@@ -160,7 +201,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
 
     async def _rewrite_with_llm_async(
         self,
-        client: BaseLLMClient,
+        client: LLMService,
         domain: str,
         content: ContentExtract,
         plan: RenewalPlan,
@@ -352,7 +393,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
 
     async def _rewrite_section(
         self,
-        client: BaseLLMClient,
+        client: LLMService,
         domain: str,
         site_label: str,
         action_summaries: List[dict[str, Any]],
@@ -432,16 +473,15 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                     request_kwargs["input"],
                     model=request_kwargs["model"],
                     temperature=request_kwargs.get("temperature"),
+                    schema=RewriteResponseModel,
                 )
                 span.note(mode="json_object")
 
-        if response.data is None:
-            raise ValueError("LLM returned an empty payload")
-
-        if not isinstance(response.data, dict):
+        payload = response.payload
+        if not isinstance(payload, RewriteResponseModel):
             raise ValueError("Unexpected payload type from LLM")
 
-        return response.data
+        return payload.model_dump(mode="json")
 
     def _run_async(self, coro: Any) -> Any:
         """Execute ``coro`` ensuring compatibility with running event loops."""

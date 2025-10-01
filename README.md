@@ -153,17 +153,69 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Konfiguriere optional den Zugriff auf OpenAI für hochwertige Textumschreibungen:
+### LLM Konfiguration & CLI
+
+Die Pipeline unterstützt mehrere Provider. Ohne weitere Parameter wird OpenAI mit dem Modell
+`gpt-4.1-mini` verwendet (sofern ein API-Key vorhanden ist). Folgende Umgebungsvariablen sind relevant:
+
+| Provider  | Pflichtvariablen | Optionale Variablen |
+|-----------|------------------|---------------------|
+| OpenAI    | `OPENAI_API_KEY` | `OPENAI_BASE_URL`, `OPENAI_MODEL` |
+| Anthropic | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` |
+| Gemini    | `GEMINI_API_KEY` | `GEMINI_BASE_URL`, `GEMINI_MODEL` |
+| DeepSeek  | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` |
+| Groq      | `GROQ_API_KEY` | `GROQ_BASE_URL`, `GROQ_MODEL` |
+| Ollama    | – (lokaler Dienst) | `OLLAMA_HOST`, `OLLAMA_MODEL` |
+
+Beispiele für den CLI-Aufruf (Modell optional, ansonsten greift der Default pro Provider):
 
 ```bash
-export OPENAI_API_KEY="<dein-schlüssel>"
+# OpenAI (Default)
+python renewal.py https://www.physioheld.ch --llm openai --llm-model gpt-4o-mini
+
+# Lokale Ollama-Instanz
+python renewal.py https://www.physioheld.ch --llm ollama --llm-model llama3.2
+
+# Anthropic
+python renewal.py https://www.physioheld.ch --llm anthropic --llm-model claude-3-7-sonnet-latest
+
+# Google Gemini
+python renewal.py https://www.physioheld.ch --llm gemini --llm-model gemini-1.5-pro
+
+# DeepSeek
+python renewal.py https://www.physioheld.ch --llm deepseek --llm-model deepseek-chat
+
+# Groq
+python renewal.py https://www.physioheld.ch --llm groq --llm-model llama3-70b-8192
 ```
 
-Pipeline ausführen (Beispiel PhysioHeld):
+Alle Artefakte landen in `sandbox/`, inklusive Crawl-Daten, Analysen, Plan, Rewrite,
+Theming-Tokens, einer vollständigen Kopie der Originalseiten (`sandbox/original/`),
+dem mehrseitigen Build (`sandbox/newsite/`), Diff-Preview und Angebot.
+
+### MCP Server für LLMs
+
+Das Skript `llm-mcp` startet einen Model Context Protocol Server, der zwei Tools und mehrere
+Ressourcen zur Verfügung stellt:
 
 ```bash
-python renewal.py https://www.physioheld.ch --log-level INFO
+llm-mcp
 ```
+
+Tools:
+
+- `llm.complete_text(provider, model, prompt, temperature?)`
+- `llm.complete_json(provider, model, prompt, schema?, temperature?)`
+
+Ressourcen:
+
+- `llm://providers` – Übersicht aller Provider und Default-Modelle
+- `llm://last/{provider}/{model}` – letzter Completion-Output
+- `llm://trace/{id}` – vollständiger Trace inklusive Retries und Token-Nutzung
+
+Die Antworten sind strukturierte Pydantic-Modelle. Fehlgeschlagene JSON-Parsings führen
+zu einem zweiten Versuch mit strengeren Instruktionen; bei erneutem Fehlschlag wird der
+Trace persistiert und eine aussagekräftige Fehlermeldung ausgelöst.
 
 Alle Artefakte landen in `sandbox/`, inklusive Crawl-Daten, Analysen, Plan, Rewrite,
 Theming-Tokens, einer vollständigen Kopie der Originalseiten (`sandbox/original/`),

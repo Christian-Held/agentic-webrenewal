@@ -27,7 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--llm",
         default=os.getenv("LLM_PROVIDER", "openai"),
-        choices=["openai", "ollama", "anthropic"],
+        choices=["openai", "ollama", "anthropic", "gemini", "deepseek", "groq"],
         help="Choose the LLM provider backend (default: env LLM_PROVIDER or openai).",
     )
     parser.add_argument(
