@@ -1,414 +1,238 @@
-"""High-level orchestration of the Agentic WebRenewal pipeline."""
+"""Agentic post-edit pipeline orchestration."""
 
 from __future__ import annotations
 
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from . import configure_logging
 from .config import PipelineConfig, load_pipeline_config
-from .agents import (
-    AccessibilityAgent,
-    BuilderAgent,
-    ComparatorAgent,
-    CrawlerAgent,
-    MemoryAgent,
-    MediaAgent,
-    NavigationAgent,
-    NavigationBuilderAgent,
-    OfferAgent,
-    PlanProposalAgent,
-    ReadabilityAgent,
-    RewriteAgent,
-    ScopeAgent,
-    SecurityAgent,
-    SEOAgent,
-    TechFingerprintAgent,
-    ThemingAgent,
-    ToolDiscoveryAgent,
-)
-from .agents.base import Agent
-from .llm import LLMService, create_llm_service, default_model_for, get_tracer
-from .models import (
-    A11yReport,
-    ContentBundle,
-    CrawlResult,
-    MemoryRecord,
-    OfferDoc,
-    PreviewIndex,
-    RenewalConfig,
-    RenewalPlan,
-    ScopePlan,
-    ThemeTokens,
-    ToolCatalog,
-)
-from .storage import SANDBOX_DIR, write_json, write_text
+from .delta import DeltaPlanner
+from .postedit.builder import IncrementalBuilder
+from .postedit.models import ChangeSet, SiteBlock, SiteState
+from .postedit.preview import PreviewGenerator
+from .state import StateStore, default_state_store
+from .storage import SANDBOX_DIR
 from .tracing import log_event, trace
-from .utils import url_to_relative_path
+from .agents import NavigationBuilderAgent, RewriteAgent, SEOAgent, ThemingAgent
+from .agents.head import HeadAgent
+from .models import RenewalConfig
+from .llm import default_model_for
 
 
-class WebRenewalPipeline:
-    """Coordinate agents to execute the renewal flow."""
+class PostEditPipeline:
+    """Coordinate delta planning, agent application and incremental builds."""
 
     def __init__(
         self,
-        renewal_config: RenewalConfig,
+        config: RenewalConfig,
         *,
-        logger: Optional[logging.Logger] = None,
-        config: Optional[PipelineConfig] = None,
+        state_store: StateStore | None = None,
+        logger: logging.Logger | None = None,
+        pipeline_config: PipelineConfig | None = None,
     ) -> None:
-        self.logger = logger or logging.getLogger("pipeline")
-        self.config = config or load_pipeline_config()
-        self._renewal_config = renewal_config
-        self._renewal_mode = renewal_config.renewal_mode
-        self._style_hints = renewal_config.style_hints()
-        self._css_framework = renewal_config.css_framework
-        self._theme_style = renewal_config.theme_style
-        self._llm_provider = renewal_config.llm_provider
-        self._llm_client: LLMService | None = create_llm_service(
-            self._llm_provider, tracer=get_tracer()
+        self.config = config
+        self.logger = logger or logging.getLogger("postedit")
+        self.pipeline_config = pipeline_config or load_pipeline_config()
+        SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
+        self.state_store = state_store or default_state_store(SANDBOX_DIR)
+        self.builder = IncrementalBuilder(SANDBOX_DIR)
+        self.preview = PreviewGenerator(SANDBOX_DIR)
+        self.resolved_model = config.llm_model or default_model_for(config.llm_provider)
+        self.rewrite_agent = RewriteAgent(model=self.resolved_model, llm_provider=config.llm_provider)
+        self.theming_agent = ThemingAgent(
+            design_directives=self.pipeline_config.design_directives,
+            theme_style=config.theme_style,
+            css_framework=config.css_framework,
         )
-        resolved_model = renewal_config.llm_model or default_model_for(self._llm_provider)
-        self._llm_model = resolved_model
-        if self._llm_client is None:
-            log_event(
-                self.logger,
-                logging.WARNING,
-                "pipeline.llm.unavailable",
-                provider=self._llm_provider,
-                model=self._llm_model,
-            )
-        else:
-            log_event(
-                self.logger,
-                logging.DEBUG,
-                "pipeline.llm.ready",
-                provider=self._llm_provider,
-                model=self._llm_model,
-            )
-        self.tool_discovery = ToolDiscoveryAgent()
-        self.scope = ScopeAgent()
-        self.crawler = CrawlerAgent()
-        self.readability = ReadabilityAgent()
-        self.tech = TechFingerprintAgent()
-        self.accessibility = AccessibilityAgent()
-        self.seo = SEOAgent()
-        self.security = SecurityAgent()
-        self.media = MediaAgent()
-        self.navigation = NavigationAgent()
-        self.navigation_builder = NavigationBuilderAgent(
-            css_framework=self._css_framework,
-            navigation_config=self._renewal_config.navigation_settings(),
-        )
-        self.plan = PlanProposalAgent()
-        self.rewrite = RewriteAgent(
-            model=self._llm_model,
-            llm_client=self._llm_client,
-        )
-        self.theming = ThemingAgent(
-            design_directives=self.config.design_directives,
-            theme_style=self._theme_style,
-            css_framework=self._css_framework,
-        )
-        self.builder = BuilderAgent(
-            css_framework=self._css_framework,
-            style_hints=self._theme_style,
-            navigation_builder=self.navigation_builder,
-        )
-        self.comparator = ComparatorAgent(
-            renewal_mode=self._renewal_mode,
-            style_hints=self._theme_style,
-            css_framework=self._css_framework,
-        )
-        self.offer = OfferAgent()
-        self.memory = MemoryAgent()
+        self.navigation_builder = NavigationBuilderAgent(css_framework=config.css_framework)
+        self.seo_agent = SEOAgent()
+        self.head_agent = HeadAgent()
 
-    def execute(self) -> None:
-        domain = self._renewal_config.domain
+    # ------------------------------------------------------------------
+    def execute(self) -> Dict[str, object]:
+        self._log_configuration()
+        site_state = self.state_store.load_site_state()
+        site_state.ensure_defaults()
+
+        if not site_state.pages:
+            self._bootstrap_state(site_state)
+
+        planner = DeltaPlanner(
+            site_state=site_state,
+            apply_scope=self.config.apply_scope,
+            user_prompt=self.config.user_prompt,
+        )
+        change_set = planner.plan()
+        change_hash = change_set.hash()
+
         log_event(
             self.logger,
             logging.INFO,
-            "pipeline.start",
-            domain=domain,
-            sandbox=str(SANDBOX_DIR),
-            renewal_mode=self._renewal_mode,
-            css_framework=self._css_framework,
-        )
-        SANDBOX_DIR.mkdir(exist_ok=True)
-        config_payload = json.dumps(
-            self._renewal_config.model_dump(), indent=2, ensure_ascii=False
-        )
-        config_path = write_text(config_payload, "config.json")
-        self._record_artifact("config.json", config_path)
-
-        tool_catalog: ToolCatalog = self._run_agent(
-            self.tool_discovery, None, stage="tool_catalog"
-        )
-        self._record_artifact("tools.json", write_json(tool_catalog, "tools.json"))
-
-        scope_plan: ScopePlan = self._run_agent(self.scope, domain, stage="scope")
-        self._record_artifact("scope.json", write_json(scope_plan, "scope.json"))
-
-        crawl_result: CrawlResult = self._run_agent(
-            self.crawler, scope_plan, stage="crawl"
-        )
-        self._record_artifact("crawl.json", write_json(crawl_result, "crawl.json"))
-        original_files = self._export_original_site(crawl_result)
-        self._record_artifact(
-            "original_manifest.json",
-            write_text(json.dumps(original_files, indent=2), "original_manifest.json"),
+            "pipeline.change_set",
+            targets=change_set.targets,
+            operations=len(change_set.operations),
+            hash=change_hash,
         )
 
-        content_extract = self._run_agent(
-            self.readability, crawl_result, stage="readability"
-        )
-        self._record_artifact("content.json", write_json(content_extract, "content.json"))
-
-        tech_fingerprint = self._run_agent(self.tech, crawl_result, stage="tech")
-        self._record_artifact("tech.json", write_json(tech_fingerprint, "tech.json"))
-
-        a11y_report = self._run_agent(self.accessibility, crawl_result, stage="a11y")
-        self._record_artifact("a11y.json", write_json(a11y_report, "a11y.json"))
-
-        seo_report = self._run_agent(self.seo, crawl_result, stage="seo")
-        self._record_artifact("seo.json", write_json(seo_report, "seo.json"))
-
-        security_report = self._run_agent(self.security, crawl_result, stage="security")
-        self._record_artifact(
-            "security.json", write_json(security_report, "security.json")
-        )
-
-        media_report = self._run_agent(self.media, crawl_result, stage="media")
-        self._record_artifact("media.json", write_json(media_report, "media.json"))
-
-        nav_model = self._run_agent(self.navigation, crawl_result, stage="navigation")
-        self._record_artifact("navigation.json", write_json(nav_model, "navigation.json"))
-
-        renewal_plan: RenewalPlan = self._run_agent(
-            self.plan,
-            (
-                a11y_report,
-                seo_report,
-                security_report,
-                tech_fingerprint,
-                media_report,
-                nav_model,
-            ),
-            stage="plan",
-        )
-        self._record_artifact("plan.json", write_json(renewal_plan, "plan.json"))
-
-        run_rewrite = self._renewal_mode in {"full", "text-only"}
-        run_design = self._renewal_mode in {"full", "design-only"}
-
-        content_bundle: ContentBundle | None = None
-        if run_rewrite:
-            content_bundle = self._run_agent(
-                self.rewrite, (domain, content_extract, renewal_plan), stage="rewrite"
-            )
-            self._record_artifact(
-                "content_new.json", write_json(content_bundle, "content_new.json")
-            )
-        elif run_design:
-            content_bundle = self.rewrite._fallback_bundle(domain, content_extract)
+        if change_set.is_empty() or self.state_store.has_change_set(change_hash):
             log_event(
                 self.logger,
                 logging.INFO,
-                "pipeline.design_only.content",
-                blocks=len(content_bundle.blocks),
-                fallback=content_bundle.fallback_used,
+                "pipeline.no_changes",
+                reason="empty" if change_set.is_empty() else "duplicate",
+                hash=change_hash,
             )
-            self._record_artifact(
-                "content_new.json", write_json(content_bundle, "content_new.json")
-            )
+            latest_preview = self.state_store.latest_preview()
+            build_info = None
+            if site_state.build.get("latest_dist"):
+                build_info = {"output_dir": site_state.build.get("latest_dist")}
+            return {
+                "change_set": change_set.to_dict(),
+                "preview": latest_preview,
+                "build": build_info,
+            }
 
-        theme_tokens: ThemeTokens | None = None
-        if run_design:
-            theme_tokens = self._run_agent(
-                self.theming, renewal_plan, stage="theming"
-            )
-            self._record_artifact("theme.json", write_json(theme_tokens, "theme.json"))
+        with trace("postedit.apply", logger=self.logger, operations=len(change_set.operations)):
+            results = self._apply_operations(site_state, change_set)
 
-        build_artifact: BuildArtifact | None = None
-        if run_design and content_bundle and theme_tokens:
-            build_artifact = self._run_agent(
-                self.builder,
-                (content_bundle, theme_tokens, nav_model),
-                stage="build",
-            )
-            self._record_artifact("build.json", write_json(build_artifact, "build.json"))
-            if build_artifact.navigation_bundle:
-                self._record_artifact(
-                    "navigation_bundle.json",
-                    write_json(build_artifact.navigation_bundle, "navigation_bundle.json"),
-                )
+        previous_dir = site_state.build.get("latest_dist")
+        with trace("postedit.build", logger=self.logger):
+            build_result = self.builder.build(site_state, change_set)
 
-        if run_design and build_artifact:
-            preview_index: PreviewIndex = self._run_agent(
-                self.comparator, (crawl_result, "newsite"), stage="compare"
-            )
-        else:
-            preview_index = PreviewIndex(
-                diffs=[],
-                style_deltas=self._style_notes(),
-            )
-        self._record_artifact("preview.json", write_json(preview_index, "preview.json"))
-
-        offer_doc: OfferDoc = self._run_agent(
-            self.offer, (domain, renewal_plan, preview_index), stage="offer"
+        preview_result = self.preview.generate(
+            old_dir=Path(previous_dir) if previous_dir else None,
+            new_dir=build_result.output_dir,
         )
-        self._record_artifact("offer.json", write_json(offer_doc, "offer.json"))
-
-        memory_record: MemoryRecord = self._run_agent(
-            self.memory, (domain, renewal_plan, offer_doc), stage="memory"
+        self.state_store.record_preview(
+            old_dir=Path(previous_dir) if previous_dir else None,
+            new_dir=build_result.output_dir,
+            index_path=preview_result.index_path,
         )
-        self._record_artifact("memory.json", write_json(memory_record, "memory.json"))
 
-        artifact_count = sum(1 for path in SANDBOX_DIR.rglob("*") if path.is_file())
+        self.state_store.save_site_state(site_state)
+        self.state_store.record_edit(
+            scope=",".join(change_set.targets),
+            prompt=self.config.user_prompt,
+            change_set=change_set,
+            diff_stats={
+                "changed_files": [str(path.relative_to(build_result.output_dir)) for path in build_result.changed_files],
+                "unchanged_files": [
+                    str(path.relative_to(build_result.output_dir))
+                    for path in build_result.unchanged_files
+                ],
+                "operations": len(change_set.operations),
+                "results": results,
+            },
+        )
+
         log_event(
             self.logger,
             logging.INFO,
-            "pipeline.finish",
-            domain=domain,
-            sandbox=str(SANDBOX_DIR),
-            artifacts=artifact_count,
+            "pipeline.preview.ready",
+            preview_id=preview_result.preview_id,
+            index=str(preview_result.index_path),
         )
 
-    def _export_original_site(self, crawl_result: CrawlResult) -> list[str]:
-        """Persist a copy of the crawled pages in the sandbox."""
-
-        original_root = SANDBOX_DIR / "original"
-        original_root.mkdir(parents=True, exist_ok=True)
-        exported: list[str] = []
-
-        with trace(
-            "pipeline.export_original", logger=self.logger, pages=len(crawl_result.pages)
-        ) as span:
-            for page in crawl_result.pages:
-                relative_path = url_to_relative_path(page.url)
-                destination = original_root / relative_path
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_text(page.html, encoding="utf-8")
-                exported.append(str(destination.relative_to(SANDBOX_DIR)))
-                span.note(url=page.url, path=str(destination))
-
-        return sorted(set(exported))
-
-    def _run_agent(self, agent: Agent[Any, Any], payload: Any, *, stage: str):
-        """Execute ``agent`` under a trace span and return its output."""
-
-        agent_label = getattr(agent, "name", agent.__class__.__name__)
-        metadata = {
-            "agent": agent_label,
-            "stage": stage,
-            "module": agent.__class__.__module__,
-            "class": agent.__class__.__name__,
+        return {
+            "change_set": change_set.to_dict(),
+            "preview": {
+                "id": preview_result.preview_id,
+                "path": str(preview_result.index_path),
+            },
+            "build": {
+                "output_dir": str(build_result.output_dir),
+                "changed_files": [str(path) for path in build_result.changed_files],
+            },
         }
 
+    # ------------------------------------------------------------------
+    def _apply_operations(self, state: SiteState, change_set: ChangeSet) -> Dict[str, object]:
+        results: Dict[str, object] = {}
+        content_ops = [op for op in change_set.operations if op.type.startswith("content.")]
+        css_ops = [op for op in change_set.operations if op.type.startswith("css.")]
+        nav_ops = [op for op in change_set.operations if op.type.startswith("nav.")]
+        seo_ops = [op for op in change_set.operations if op.type.startswith("seo.")]
+        head_ops = [op for op in change_set.operations if op.type.startswith("head.")]
+
+        if css_ops:
+            results["css"] = self.theming_agent.apply_post_edit(
+                state,
+                css_ops,
+                user_prompt=self.config.user_prompt,
+                state_store=self.state_store,
+                provider=self.config.llm_provider,
+                model=self.resolved_model,
+            )
+
+        if nav_ops:
+            results["nav"] = self.navigation_builder.apply_post_edit(state, nav_ops)
+
+        if content_ops:
+            results["content"] = self.rewrite_agent.apply_post_edit(
+                state,
+                content_ops,
+                user_prompt=self.config.user_prompt,
+                state_store=self.state_store,
+                provider=self.config.llm_provider,
+                model=self.resolved_model,
+            )
+
+        if seo_ops:
+            results["seo"] = self.seo_agent.apply_post_edit(
+                state,
+                seo_ops,
+                user_prompt=self.config.user_prompt,
+                state_store=self.state_store,
+                provider=self.config.llm_provider,
+                model=self.resolved_model,
+            )
+
+        if head_ops:
+            results["head"] = self.head_agent.run((state, head_ops))
+
+        return results
+
+    def _bootstrap_state(self, state: SiteState) -> None:
+        log_event(self.logger, logging.INFO, "pipeline.bootstrap")
+        home = state.ensure_page("/", url="/", title="Home")
+        if not home.blocks:
+            home.blocks.append(
+                SiteBlock(id="hero", text="Welcome to the renewed site", meta={"heading": "Welcome"})
+            )
+        state.nav.setdefault("items", [
+            {"label": "Home", "href": "index.html"},
+        ])
+        state.head.setdefault("title", f"Renewed {self.config.domain}")
+
+    def _log_configuration(self) -> None:
         log_event(
             self.logger,
             logging.INFO,
-            "agent.start",
-            **metadata,
+            "pipeline.config",  # log resolved config once
+            config=json.loads(self.config.model_dump_json()),
         )
-
-        with trace(f"{agent_label}.run", logger=self.logger, **metadata):
-            try:
-                result = agent.run(payload)
-            except Exception as exc:
-                log_event(
-                    self.logger,
-                    logging.ERROR,
-                    "agent.error",
-                    **metadata,
-                    error=str(exc),
-                    exception=exc.__class__.__name__,
-                    exc_info=True,
-                )
-                raise
-
-        log_event(
-            self.logger,
-            logging.INFO,
-            "agent.finish",
-            **metadata,
-            summary=self._summarise_output(result),
-        )
-        return result
-
-    def _summarise_output(self, output: Any) -> Dict[str, Any]:
-        """Provide a compact summary of an agent output for logging."""
-
-        summary: Dict[str, Any] = {"type": type(output).__name__}
-
-        if hasattr(output, "pages"):
-            summary["pages"] = len(getattr(output, "pages", []))
-        if hasattr(output, "sections"):
-            summary["sections"] = len(getattr(output, "sections", []))
-        if hasattr(output, "blocks"):
-            summary["blocks"] = len(getattr(output, "blocks", []))
-        if hasattr(output, "issues"):
-            summary["issues"] = len(getattr(output, "issues", []))
-        if hasattr(output, "items"):
-            summary["items"] = len(getattr(output, "items", []))
-        if hasattr(output, "images"):
-            summary["images"] = len(getattr(output, "images", []))
-        if hasattr(output, "tools"):
-            summary["tools"] = len(getattr(output, "tools", []))
-        if hasattr(output, "fallback_used"):
-            summary["fallback_used"] = getattr(output, "fallback_used")
-        if hasattr(output, "score"):
-            summary["score"] = getattr(output, "score")
-        if hasattr(output, "estimate_hours"):
-            summary["estimate_hours"] = getattr(output, "estimate_hours")
-        if hasattr(output, "title") and isinstance(getattr(output, "title"), str):
-            summary["title"] = getattr(output, "title")
-
-        if isinstance(output, dict):
-            summary["keys"] = sorted(output.keys())
-        elif isinstance(output, (list, tuple, set)):
-            summary["count"] = len(output)
-
-        return summary
-
-    def _record_artifact(self, filename: str, path: Path) -> None:
-        """Emit structured logs for stored artifacts."""
-
-        log_event(
-            self.logger,
-            logging.INFO,
-            "pipeline.artifact",
-            filename=filename,
-            path=str(path),
-        )
-
-    def _style_notes(self) -> list[str]:
-        """Return human-readable descriptions of the requested styling."""
-
-        notes: list[str] = []
-        if self._css_framework:
-            notes.append(f"Framework target: {self._css_framework}")
-        if self._style_hints:
-            notes.append(f"Style hints: {', '.join(self._style_hints)}")
-        return notes
 
 
 def run_pipeline(
     config: RenewalConfig,
     *,
     pipeline_config: Optional[PipelineConfig] = None,
-) -> None:
+    state_store: StateStore | None = None,
+) -> Dict[str, object]:
     level = getattr(logging, str(config.log_level).upper(), logging.INFO)
     if isinstance(level, str):
         level = logging.INFO
     configure_logging(level=level)
-    pipeline = WebRenewalPipeline(
-        renewal_config=config,
-        config=pipeline_config,
+    pipeline = PostEditPipeline(
+        config,
+        pipeline_config=pipeline_config,
+        state_store=state_store,
     )
-    pipeline.execute()
+    return pipeline.execute()
 
 
-__all__ = ["WebRenewalPipeline", "run_pipeline"]
+__all__ = ["PostEditPipeline", "run_pipeline"]
+

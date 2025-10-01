@@ -7,7 +7,10 @@ import logging
 import time
 from typing import Any, Dict, List, MutableMapping, Sequence, Tuple, Type
 
-import jsonschema
+try:  # pragma: no cover - optional dependency
+    import jsonschema  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - exercised in unit tests without dependency
+    jsonschema = None  # type: ignore
 from pydantic import BaseModel, ValidationError
 
 from ..tracing import log_event, safe_json
@@ -237,7 +240,8 @@ class LLMService:
                 last_response_raw = response.raw
                 parsed_payload = json.loads(response.text)
                 if schema_dict is not None:
-                    jsonschema.validate(instance=parsed_payload, schema=schema_dict)
+                    if jsonschema is not None:
+                        jsonschema.validate(instance=parsed_payload, schema=schema_dict)
                     payload_model: BaseModel = JSONPayload(root=parsed_payload)
                 elif schema_model is not None:
                     payload_model = schema_model.model_validate(parsed_payload)
@@ -315,7 +319,17 @@ class LLMService:
                     else None,
                 )
                 if not isinstance(
-                    exc, (json.JSONDecodeError, jsonschema.ValidationError, ValidationError)
+                    exc,
+                    tuple(
+                        filter(
+                            None,
+                            [
+                                json.JSONDecodeError,
+                                getattr(jsonschema, "ValidationError", None),
+                                ValidationError,
+                            ],
+                        )
+                    ),
                 ):
                     raise
                 last_error = exc

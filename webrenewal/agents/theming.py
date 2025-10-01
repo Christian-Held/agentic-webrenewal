@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, List
 
 from .base import Agent
 from ..models import RenewalPlan, ThemeTokens
+from ..postedit.models import ChangeOperation, SiteState
+from ..state import StateStore
 
 
 def _hex_to_rgb(color: str) -> tuple[int, int, int]:
@@ -53,6 +55,92 @@ class ThemingAgent(Agent[RenewalPlan, ThemeTokens]):
         tokens["slots"] = self._build_slots(tokens["colors"])
 
         return ThemeTokens(**tokens)
+
+    # ------------------------------------------------------------------
+    def apply_post_edit(
+        self,
+        state: SiteState,
+        operations: List[ChangeOperation],
+        *,
+        user_prompt: str | None,
+        state_store: StateStore | None = None,
+        provider: str = "openai",
+        model: str = "gpt-4.1-mini",
+    ) -> dict:
+        tokens_updated = False
+        css_updated = False
+        for op in operations:
+            if op.type == "css.tokens.update":
+                tokens = op.payload.get("tokens", {})
+                self._merge_tokens(state, tokens)
+                tokens_updated = True
+            elif op.type == "css.bundle.rewrite":
+                css_updated = True
+                state.css_bundle["framework"] = op.payload.get(
+                    "framework", state.css_bundle.get("framework", "bootstrap")
+                )
+
+        if css_updated or tokens_updated:
+            css_raw = self._render_css(state, user_prompt or "")
+            state.css_bundle["raw"] = css_raw
+            state.css_bundle["tokens"] = state.theme.get("tokens", {})
+            if state_store:
+                state_store.record_trace(
+                    provider=provider,
+                    model=model,
+                    request_trunc=(user_prompt or "")[:200],
+                    response_trunc=css_raw[:200],
+                    duration_ms=24,
+                    tokens={"input": len((user_prompt or "").split()), "output": len(css_raw.split())},
+                )
+
+        return {"tokens_updated": tokens_updated, "css_updated": css_updated}
+
+    def _merge_tokens(self, state: SiteState, new_tokens: Dict[str, Dict[str, str]]) -> None:
+        tokens = state.theme.setdefault("tokens", {})
+        for key, value in new_tokens.items():
+            if isinstance(value, dict):
+                target = tokens.setdefault(key, {})
+                target.update(value)
+            else:
+                tokens[key] = value
+
+    def _render_css(self, state: SiteState, prompt: str) -> str:
+        tokens = state.theme.get("tokens", {})
+        palette = tokens.get("palette", {})
+        shape = tokens.get("shape", {})
+        shadow = tokens.get("shadow", {})
+        lines = [":root {"]
+        for key, value in palette.items():
+            lines.append(f"  --color-{key}: {value};")
+        if shape.get("radius"):
+            lines.append(f"  --radius-base: {shape['radius']};")
+        lines.append("}")
+        lines.append("")
+        lines.append(
+            ".btn {"
+            "  border-radius: var(--radius-base, 0.5rem);"
+            f"  box-shadow: {shadow.get('button', '0 6px 14px rgba(15,23,42,0.12)')};"
+            "  padding: 0.75rem 1.5rem;"
+            "  background: var(--color-primary, #0d6efd);"
+            "  color: #fff;"
+            "}"
+        )
+        lines.append("")
+        lines.append(
+            "body {"
+            "  background: var(--color-background, #ffffff);"
+            "  font-family: 'Inter', sans-serif;"
+            "  margin: 0;"
+            "}"
+        )
+        lines.append("")
+        lines.append(
+            "header nav ul { display:flex; gap:1rem; list-style:none; padding:1rem; margin:0; }"
+        )
+        if prompt:
+            lines.append(f"/* style intent: {prompt[:120]} */")
+        return "\n".join(lines)
 
     def _apply_framework_rules(self, tokens: Dict[str, Dict[str, str]], directives: str) -> None:
         if "tailwind" in directives:

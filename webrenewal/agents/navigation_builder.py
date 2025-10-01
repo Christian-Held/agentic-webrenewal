@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, List, Sequence
 
 from .base import Agent
 from ..models import NavModel, NavigationBundle, NavigationItem, ThemeTokens
+from ..postedit.models import ChangeOperation, SiteState
 
 _ALLOWED_STYLES = {"horizontal", "vertical", "mega-menu"}
 _ALLOWED_LOCATIONS = {
@@ -94,6 +95,36 @@ class NavigationBuilderAgent(
             js=js_snippet,
         )
         return bundle
+
+    def apply_post_edit(
+        self,
+        state: SiteState,
+        operations: list[ChangeOperation],
+    ) -> dict:
+        layout_updated = False
+        for op in operations:
+            if op.type != "nav.layout.update":
+                continue
+            layout = state.nav.setdefault("layout", {})
+            layout.update({k: v for k, v in op.payload.items() if v is not None})
+            layout_updated = True
+        if layout_updated:
+            state.nav["html"] = self._simple_nav_markup(state)
+        return {"layout_updated": layout_updated}
+
+    def _simple_nav_markup(self, state: SiteState) -> str:
+        items = state.nav.get("items", [])
+        list_items = "".join(
+            f"<li><a href=\"{html.escape(str(item.get('href', '#')))}\">{html.escape(str(item.get('label', 'Item')))}</a></li>"
+            for item in items
+        )
+        layout = state.nav.get("layout", {})
+        classes = ["nav-simple"]
+        if layout.get("location"):
+            classes.append(f"nav-{layout['location']}")
+        if layout.get("dropdown"):
+            classes.append(f"dropdown-{layout['dropdown']}")
+        return f"<nav class=\"{' '.join(classes)}\"><ul>{list_items}</ul></nav>"
 
     # ------------------------------------------------------------------
     # Config helpers

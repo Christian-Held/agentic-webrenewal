@@ -88,6 +88,21 @@ def parse_args() -> argparse.Namespace:
         default=os.getenv("LLM_MODEL"),
         help="Override the model identifier for the selected provider.",
     )
+    parser.add_argument(
+        "--user-prompt",
+        default=None,
+        help="Free text instructions for the post-edit planner.",
+    )
+    parser.add_argument(
+        "--apply-scope",
+        default="all",
+        help="Comma separated scopes to apply (all,css,seo,images,logo,content,nav,head).",
+    )
+    parser.add_argument(
+        "--no-recrawl",
+        action="store_true",
+        help="Skip crawl steps when previous artifacts exist.",
+    )
     return parser.parse_args()
 
 
@@ -116,8 +131,14 @@ def main() -> None:
         navigation_dropdown_default=args.navigation_dropdown_default,
         navigation_config=advanced_config,
         navigation_logo=args.navigation_logo,
+        user_prompt=args.user_prompt,
+        apply_scope=args.apply_scope,
+        no_recrawl=args.no_recrawl,
     )
-    run_pipeline(config)
+    result = run_pipeline(config)
+    preview = result.get("preview") if isinstance(result, dict) else None
+    if isinstance(preview, dict) and preview.get("path"):
+        print(f"Preview ready: {preview['path']}")
 
 
 if __name__ == "__main__":

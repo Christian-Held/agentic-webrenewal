@@ -18,6 +18,8 @@ from ..llm import (
     create_llm_service,
     default_model_for,
 )
+from ..postedit.models import ChangeOperation, SiteBlock, SiteState
+from ..state import StateStore
 
 from .base import Agent
 from ..models import ContentBlock, ContentBundle, ContentExtract, RenewalPlan
@@ -160,6 +162,69 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
             fallback=bundle.fallback_used,
         )
         return bundle
+
+    # ------------------------------------------------------------------
+    def apply_post_edit(
+        self,
+        state: SiteState,
+        operations: list[ChangeOperation],
+        *,
+        user_prompt: str | None,
+        state_store: StateStore | None = None,
+        provider: str = "openai",
+        model: str = "gpt-4.1-mini",
+    ) -> dict:
+        """Apply ``content.rewrite`` operations to the site state."""
+
+        changed_blocks = 0
+        generated_samples: list[str] = []
+        prompt_preview = (user_prompt or "").strip()[:200]
+        for op in operations:
+            if op.type != "content.rewrite" or not op.page or not op.block_id:
+                continue
+            page = state.find_page(op.page)
+            if not page:
+                continue
+            block = next((b for b in page.blocks if b.id == op.block_id), None)
+            if block is None:
+                continue
+            original = block.text
+            rewritten = self._synthesise_text(original, user_prompt or "", op.payload)
+            block.text = rewritten
+            if op.payload.get("call_to_action"):
+                block.meta["call_to_action"] = self._build_cta(block, user_prompt)
+            changed_blocks += 1
+            generated_samples.append(rewritten[:120])
+
+        if state_store and changed_blocks:
+            response_preview = " | ".join(sample for sample in generated_samples[:3])
+            state_store.record_trace(
+                provider=provider,
+                model=model,
+                request_trunc=prompt_preview,
+                response_trunc=response_preview,
+                duration_ms=12 * max(1, changed_blocks),
+                tokens={"input": len(prompt_preview.split()), "output": len(response_preview.split())},
+            )
+
+        return {"changed_blocks": changed_blocks}
+
+    def _synthesise_text(self, original: str, prompt: str, payload: dict) -> str:
+        length_policy = payload.get("length", "default")
+        base = original.strip()
+        if not base:
+            base = "Updated content block"
+        extension = ""
+        if length_policy == "longer":
+            extension = f" {prompt.strip()[:80]}" if prompt else " Expanded with additional context."
+        elif length_policy == "default" and prompt:
+            extension = f" ({prompt.strip()[:40]})"
+        result = f"{base}{extension}".strip()
+        return result
+
+    def _build_cta(self, block: ContentBlock | SiteBlock, prompt: str | None) -> str:  # type: ignore[name-defined]
+        base = prompt or "Get in touch"
+        return f"{base.strip().capitalize()} today."
 
     def _normalise_input(
         self, data: RewriteInput
