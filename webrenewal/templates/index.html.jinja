@@ -80,5 +80,8 @@
     <script src="{{ src }}" defer></script>
       {% endfor %}
     {% endif %}
+    {% if navigation_bundle and navigation_bundle.js %}
+    <script data-role="navigation-bundle">{{ navigation_bundle.js | safe }}</script>
+    {% endif %}
   </body>
 </html>

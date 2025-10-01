@@ -281,4 +281,9 @@
       }
     }
   </style>
+  {% if navigation_bundle and navigation_bundle.css %}
+  <style id="navigation-bundle-styles">
+{{ navigation_bundle.css | indent(4, True) | safe }}
+  </style>
+  {% endif %}
 </head>

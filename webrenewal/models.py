@@ -40,6 +40,30 @@ class RenewalConfig(BaseModel):
         default="INFO",
         description="Desired logging verbosity",
     )
+    navigation_style: str = Field(
+        default="horizontal",
+        description="Preferred navigation layout style",
+    )
+    navigation_location: str = Field(
+        default="top-left",
+        description="Where the navigation should be positioned on the page",
+    )
+    navigation_dropdown: str = Field(
+        default="hover",
+        description="Interaction mode for dropdown menus",
+    )
+    navigation_dropdown_default: str = Field(
+        default="closed",
+        description="Initial dropdown expanded state",
+    )
+    navigation_config: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Advanced navigation configuration overrides",
+    )
+    navigation_logo: str | None = Field(
+        default=None,
+        description="Optional logo URL to display in the navigation",
+    )
 
     @field_validator("domain", mode="before")
     @classmethod
@@ -81,6 +105,81 @@ class RenewalConfig(BaseModel):
     @classmethod
     def _normalise_log_level(cls, value: str | None) -> str:
         return (value or "INFO").strip().upper()
+
+    @field_validator("navigation_style", mode="before")
+    @classmethod
+    def _normalise_navigation_style(cls, value: str | None) -> str:
+        candidate = (value or "horizontal").strip().lower()
+        allowed = {"horizontal", "vertical", "mega-menu"}
+        if candidate not in allowed:
+            raise ValueError(
+                "Unsupported navigation_style '{value}'. Expected one of: horizontal, vertical, mega-menu.".format(
+                    value=value
+                )
+            )
+        return candidate
+
+    @field_validator("navigation_location", mode="before")
+    @classmethod
+    def _normalise_navigation_location(cls, value: str | None) -> str:
+        candidate = (value or "top-left").strip().lower()
+        allowed = {
+            "top-left",
+            "top-right",
+            "top-center",
+            "side-left",
+            "side-right",
+            "footer",
+        }
+        if candidate not in allowed:
+            raise ValueError(
+                "Unsupported navigation_location '{value}'. Expected one of: {choices}.".format(
+                    value=value,
+                    choices=", ".join(sorted(allowed)),
+                )
+            )
+        return candidate
+
+    @field_validator("navigation_dropdown", mode="before")
+    @classmethod
+    def _normalise_navigation_dropdown(cls, value: str | None) -> str:
+        candidate = (value or "hover").strip().lower()
+        allowed = {"none", "hover", "click"}
+        if candidate not in allowed:
+            raise ValueError(
+                "Unsupported navigation_dropdown '{value}'. Expected one of: none, hover, click.".format(
+                    value=value
+                )
+            )
+        return candidate
+
+    @field_validator("navigation_dropdown_default", mode="before")
+    @classmethod
+    def _normalise_navigation_dropdown_default(cls, value: str | None) -> str:
+        candidate = (value or "closed").strip().lower()
+        allowed = {"open", "closed"}
+        if candidate not in allowed:
+            raise ValueError(
+                "Unsupported navigation_dropdown_default '{value}'. Expected one of: open, closed.".format(
+                    value=value
+                )
+            )
+        return candidate
+
+    def navigation_settings(self) -> Dict[str, Any]:
+        """Return the resolved navigation settings merged with advanced config."""
+
+        merged: Dict[str, Any] = {
+            "style": self.navigation_style,
+            "location": self.navigation_location,
+            "dropdown": self.navigation_dropdown,
+            "dropdown_default": self.navigation_dropdown_default,
+        }
+        advanced = dict(self.navigation_config or {})
+        merged.update(advanced)
+        if self.navigation_logo:
+            merged.setdefault("logo", self.navigation_logo)
+        return merged
 
     def style_hints(self) -> list[str]:
         """Return individual style hints derived from the theme_style field."""
@@ -221,6 +320,21 @@ class NavModel(Serializable):
 
 
 @dataclass(slots=True)
+class NavigationBundle(Serializable):
+    location: str
+    style: str
+    dropdown: str
+    dropdown_default: str
+    items: List[NavigationItem]
+    logo: Optional[str] = None
+    sticky: bool = False
+    config: Dict[str, Any] = field(default_factory=dict)
+    html: str = ""
+    css: str = ""
+    js: str = ""
+
+
+@dataclass(slots=True)
 class RenewalAction(Serializable):
     identifier: str
     description: str
@@ -308,6 +422,7 @@ class ThemeTokens(Serializable):
 class BuildArtifact(Serializable):
     output_dir: str
     files: List[str]
+    navigation_bundle: NavigationBundle | None = None
 
 
 @dataclass(slots=True)

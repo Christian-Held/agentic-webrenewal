@@ -7,6 +7,7 @@ from .crawler import CrawlerAgent
 from .memory import MemoryAgent
 from .media import MediaAgent
 from .navigation import NavigationAgent
+from .navigation_builder import NavigationBuilderAgent
 from .offer import OfferAgent
 from .plan import PlanProposalAgent
 from .readability import ReadabilityAgent
@@ -26,6 +27,7 @@ __all__ = [
     "MemoryAgent",
     "MediaAgent",
     "NavigationAgent",
+    "NavigationBuilderAgent",
     "OfferAgent",
     "PlanProposalAgent",
     "ReadabilityAgent",

@@ -1,25 +1,27 @@
-{% from '_nav.jinja' import render_nav_items %}
-{% set collapse_id = 'primary-navigation' %}
+{% if navigation_bundle and navigation_bundle.html %}
+  {{ navigation_bundle.html | safe }}
+{% elif navigation and navigation|length %}
 <header class="site-topbar shadow-sm sticky-top">
   <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
   <nav class="navbar navbar-expand-lg" data-bs-theme="dark" aria-label="Hauptnavigation">
     <div class="container-xl d-flex align-items-center gap-3">
       <a class="navbar-brand" href="{{ home_href | default('index.html') }}">{{ header_title | default('Renewed Website') }}</a>
-      {% if header_subtitle %}
-      <span class="navbar-text navbar-text-subtitle text-white-50 small">{{ header_subtitle }}</span>
-      {% endif %}
-      <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#{{ collapse_id }}" aria-controls="{{ collapse_id }}" aria-expanded="false" aria-label="Navigation umschalten">
+      <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#fallback-navigation" aria-controls="fallback-navigation" aria-expanded="false" aria-label="Navigation umschalten">
         <span class="navbar-toggler-icon"></span>
       </button>
-      <div class="collapse navbar-collapse justify-content-lg-end" id="{{ collapse_id }}">
-        {% if navigation and navigation|length %}
+      <div class="collapse navbar-collapse justify-content-lg-end" id="fallback-navigation">
         <ul class="navbar-nav ms-lg-auto gap-lg-2">
-          {{ render_nav_items(navigation) }}
+          {% for item in navigation %}
+          <li class="nav-item"><a class="nav-link" href="{{ item.href }}">{{ item.label }}</a></li>
+          {% endfor %}
         </ul>
-        {% else %}
-        <p class="navbar-text text-white-50 mb-0 small">Navigation wird nach dem Crawl ergänzt.</p>
-        {% endif %}
       </div>
     </div>
   </nav>
 </header>
+{% else %}
+<header class="site-topbar shadow-sm sticky-top">
+  <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
+  <div class="container-xl py-3 text-white-50 small">Navigation wird nach dem Crawl ergänzt.</div>
+</header>
+{% endif %}
