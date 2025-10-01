@@ -154,3 +154,17 @@ Dieser Agent stellt sicher, dass jede generierte Seite im Renewal-Prozess **mind
 A5 ist der zentrale Qualitätsprüfer für Barrierefreiheit.
 Ohne A5 kein vertrauenswürdiges „OfferDoc“, da Kunden explizit auf Accessibility achten (gesetzliche Vorgaben in EU/CH).
 Technologie-agnostisch implementierbar: Python (Playwright + axe-core), Java (Selenium + Deque axe).
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Zählt fehlende Alt-Texte und bewertet den Score entsprechend.
+- Dokumentiert gefundene Issues pro Bild-URL.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Automatisierte WCAG-Audits (Kontrast, Landmark-Rollen, Keyboard-Navigation).
+- Integration von Browser-basierten Axe- oder Pa11y-Läufen.
+
