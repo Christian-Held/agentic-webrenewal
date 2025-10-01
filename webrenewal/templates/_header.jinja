@@ -1,12 +1,25 @@
-{% set header_title = header_title | default('Renewed Website') %}
-<header class="site-header">
-  <div class="site-header__inner">
-    <div class="site-header__content">
-      <h1 class="site-title">{{ header_title }}</h1>
+{% from '_nav.jinja' import render_nav_items %}
+{% set collapse_id = 'primary-navigation' %}
+<header class="site-topbar shadow-sm sticky-top">
+  <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
+  <nav class="navbar navbar-expand-lg" data-bs-theme="dark" aria-label="Hauptnavigation">
+    <div class="container-xl d-flex align-items-center gap-3">
+      <a class="navbar-brand" href="{{ home_href | default('index.html') }}">{{ header_title | default('Renewed Website') }}</a>
       {% if header_subtitle %}
-      <p class="site-subtitle">{{ header_subtitle }}</p>
+      <span class="navbar-text navbar-text-subtitle text-white-50 small">{{ header_subtitle }}</span>
       {% endif %}
+      <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#{{ collapse_id }}" aria-controls="{{ collapse_id }}" aria-expanded="false" aria-label="Navigation umschalten">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse justify-content-lg-end" id="{{ collapse_id }}">
+        {% if navigation and navigation|length %}
+        <ul class="navbar-nav ms-lg-auto gap-lg-2">
+          {{ render_nav_items(navigation) }}
+        </ul>
+        {% else %}
+        <p class="navbar-text text-white-50 mb-0 small">Navigation wird nach dem Crawl ergänzt.</p>
+        {% endif %}
+      </div>
     </div>
-    {% include "_nav.jinja" with context %}
-  </div>
+  </nav>
 </header>

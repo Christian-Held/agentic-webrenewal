@@ -1,344 +1,46 @@
+{% set hero_block = (content.blocks | selectattr('type', 'equalto', 'hero') | list | first) %}
+{% set derived_title = content.meta_title or (hero_block.title if hero_block and hero_block.title else 'Renewed Website') %}
+{% set derived_description = content.meta_description %}
+{% if not derived_description %}
+  {% if hero_block and hero_block.body %}
+    {% set derived_description = hero_block.body | striptags | truncate(160) %}
+  {% elif content.blocks|length %}
+    {% set derived_description = content.blocks[0].body | striptags | truncate(160) %}
+  {% endif %}
+{% endif %}
+{% set header_subtitle = None %}
+{% if hero_block and hero_block.data is mapping %}
+  {% set header_subtitle = hero_block.data.get('tagline') or hero_block.data.get('subtitle') %}
+{% endif %}
+{% set footer_contact = (content.blocks | selectattr('type', 'equalto', 'contact') | list | first) %}
+{% set page_meta = {
+  'lang': content.language if content.language is defined else 'en',
+  'title': derived_title,
+  'description': derived_description,
+  'canonical': content.canonical_url if content.canonical_url is defined else None,
+  'open_graph': {
+    'title': derived_title,
+    'description': derived_description,
+    'type': 'website'
+  },
+  'twitter': {
+    'card': 'summary_large_image',
+    'title': derived_title,
+    'description': derived_description
+  }
+} %}
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    {% if content.meta_title %}
-    <title>{{ content.meta_title }}</title>
-    {% else %}
-    <title>Renewed Website</title>
-    {% endif %}
-    {% if content.meta_description %}
-    <meta name="description" content="{{ content.meta_description }}" />
-    {% endif %}
-    {% for href in framework.css_links %}
-    <link rel="stylesheet" href="{{ href }}" />
-    {% endfor %}
-    <style>
-      :root {
-      {% for name, value in css_variables.items() %}
-        {{ name }}: {{ value }};
-      {% endfor %}
-      }
-
-      body {
-        font-family: var(--font-body-family);
-        font-size: var(--font-base-size);
-        line-height: var(--font-line-height);
-        margin: 0;
-        min-height: 100vh;
-        background: linear-gradient(
-            135deg,
-            color-mix(in srgb, var(--color-surface-alt) 90%, transparent),
-            var(--color-surface)
-          )
-          fixed;
-        color: var(--color-text);
-      }
-
-      .site-header {
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        background: color-mix(in srgb, var(--slot-hero-background) 92%, rgba(255, 255, 255, 0.08));
-        color: var(--slot-hero-text);
-        backdrop-filter: blur(12px);
-        border-bottom: 1px solid color-mix(in srgb, var(--slot-hero-background) 70%, transparent);
-        box-shadow: var(--shadow-flat);
-      }
-
-      .site-header__inner {
-        max-width: min(100%, calc(var(--breakpoint-xl) + var(--space-xl)));
-        margin: 0 auto;
-        padding: var(--space-lg) var(--space-md);
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-md);
-      }
-
-      .site-title {
-        margin: 0;
-        font-family: var(--font-heading-family);
-        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.6);
-        font-weight: var(--font-weight-heading);
-      }
-
-      .site-subtitle {
-        margin: 0;
-        max-width: 70ch;
-        color: color-mix(in srgb, var(--slot-hero-text) 80%, #000000 10%);
-      }
-
-      .site-nav {
-        display: flex;
-        justify-content: center;
-      }
-
-      .site-nav__list {
-        list-style: none;
-        display: flex;
-        align-items: center;
-        gap: var(--space-sm);
-        margin: 0;
-        padding: var(--space-xs) var(--space-sm);
-        background: color-mix(in srgb, var(--slot-nav-background) 90%, transparent);
-        border-radius: var(--radius-pill);
-        box-shadow: var(--shadow-flat);
-      }
-
-      .site-nav__item--placeholder {
-        opacity: 0.65;
-        font-style: italic;
-      }
-
-      .site-nav__item--has-children {
-        position: relative;
-      }
-
-      .site-nav__sublist {
-        list-style: none;
-        margin: var(--space-xs) 0 0;
-        padding: var(--space-xs) 0 0;
-        border-left: 1px solid color-mix(in srgb, var(--slot-nav-background) 65%, transparent);
-        display: grid;
-        gap: var(--space-xs);
-      }
-
-      .site-nav__sublist .site-nav__link {
-        font-size: 0.9em;
-      }
-
-      .site-nav__link {
-        color: var(--slot-nav-text);
-        text-decoration: none;
-        font-weight: 600;
-        padding: var(--space-xs) var(--space-sm);
-        border-radius: var(--radius-pill);
-        transition: all 0.2s ease;
-      }
-
-      .site-nav__link:hover,
-      .site-nav__link:focus-visible {
-        color: var(--slot-nav-hover);
-        background: color-mix(in srgb, var(--slot-nav-background) 70%, transparent);
-        outline: none;
-      }
-
-      main {
-        max-width: min(100%, calc(var(--breakpoint-xl) + var(--space-xl)));
-        margin: 0 auto;
-        padding: calc(var(--space-xl) + var(--space-lg)) var(--space-md) var(--space-xl);
-        display: grid;
-        gap: var(--space-xl);
-      }
-
-      .section {
-        background: color-mix(in srgb, var(--color-surface-alt) 96%, transparent);
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--color-border);
-        box-shadow: var(--shadow-raised);
-        display: grid;
-        gap: var(--space-sm);
-      }
-
-      .section--hero {
-        background: color-mix(in srgb, var(--slot-hero-background) 88%, transparent);
-        color: var(--slot-hero-text);
-
-      }
-
-      .section__inner {
-        padding: clamp(var(--space-md), 2.5vw, var(--space-xl));
-        display: grid;
-        gap: var(--space-md);
-      }
-
-
-      .section__title {
-        margin: 0;
-        font-family: var(--font-heading-family);
-        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.2);
-      }
-
-      .section__body {
-        font-size: 1rem;
-        line-height: var(--font-line-height);
-        white-space: pre-line;
-      }
-
-      .hero__kicker {
-        text-transform: uppercase;
-        letter-spacing: 0.18em;
-        font-size: 0.8rem;
-        margin: 0;
-        opacity: 0.85;
-      }
-
-      .hero__title {
-        margin: 0;
-        font-family: var(--font-heading-family);
-        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.7);
-      }
-
-
-      .hero__body {
-        margin: 0;
-        white-space: pre-line;
-      }
-
-      .button {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--space-xs);
-        text-decoration: none;
-        font-weight: 600;
-        padding: var(--space-sm) var(--space-md);
-        border-radius: var(--radius-pill);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
-
-      .button--primary {
-        background: var(--color-primary);
-        color: var(--color-on-primary, #ffffff);
-      }
-
-      .button--secondary {
-        background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-        color: var(--color-primary);
-        border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
-      }
-
-      .button:hover,
-      .button:focus-visible {
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-raised);
-      }
-
-      .faq-list,
-      .contact-list {
-        display: grid;
-        gap: var(--space-md);
-        margin: 0;
-        padding: 0;
-      }
-
-      .faq-item__question,
-      .contact-item__label {
-        font-weight: 700;
-        margin: 0 0 var(--space-xs);
-      }
-
-      .faq-item__answer,
-      .contact-item__value {
-        margin: 0;
-        white-space: pre-line;
-      }
-
-      .contact-details__row {
-        margin: 0;
-      }
-
-      .section--links {
-        background: color-mix(in srgb, var(--color-surface-alt) 98%, transparent);
-      }
-
-      .generated-pages {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        gap: var(--space-sm);
-      }
-
-      .generated-pages a {
-        color: var(--color-primary);
-        font-weight: 600;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: var(--space-xs);
-      }
-
-      .generated-pages a::after {
-        content: "→";
-        font-size: 0.875em;
-        opacity: 0.7;
-        transition: transform 0.2s ease;
-      }
-
-      .generated-pages a:hover::after,
-      .generated-pages a:focus-visible::after {
-        transform: translateX(4px);
-      }
-
-      .fallback-banner {
-        border-radius: var(--radius-md);
-        padding: clamp(var(--space-md), 2vw, var(--space-lg));
-        border-left: 4px solid var(--color-accent);
-        background: color-mix(in srgb, var(--color-surface-alt) 92%, transparent);
-        color: var(--color-text);
-        box-shadow: var(--shadow-flat);
-      }
-
-      .site-footer {
-        margin-top: auto;
-        background: color-mix(in srgb, var(--slot-footer-background) 95%, transparent);
-        color: var(--slot-footer-text);
-        padding: var(--space-xl) var(--space-md);
-        text-align: center;
-      }
-
-      .site-footer__inner {
-        max-width: min(100%, calc(var(--breakpoint-xl) + var(--space-xl)));
-        margin: 0 auto;
-      }
-
-
-      .site-footer p {
-        margin: 0;
-        font-size: 0.9rem;
-      }
-
-      @media (max-width: var(--breakpoint-md)) {
-        .site-header__inner {
-          padding: var(--space-lg) var(--space-sm);
-        }
-
-        .site-nav__list {
-          flex-wrap: wrap;
-          justify-content: center;
-        }
-      }
-
-        main {
-          padding: var(--space-lg) var(--space-sm) var(--space-xl);
-        }
-
-        .section__inner {
-          padding: clamp(var(--space-md), 4vw, var(--space-lg));
-        }
-      }
-    </style>
-  </head>
-  <body class="{{ framework.body_class }}">
-    {% set header_title = content.meta_title or 'Renewed Website' %}
-    {% set header_subtitle = None %}
-    {% set hero_block = (content.blocks | selectattr('type', 'equalto', 'hero') | list | first) %}
-    {% if hero_block %}
-      {% if hero_block.title %}
-        {% set header_title = hero_block.title %}
-      {% endif %}
-      {% if hero_block.data is mapping %}
-        {% set header_subtitle = hero_block.data.get('tagline') or hero_block.data.get('subtitle') %}
-      {% endif %}
-    {% endif %}
-    {% with header_title=header_title, header_subtitle=header_subtitle, home_href='index.html' %}
-      {% include "_header.jinja" %}
-    {% endwith %}
-    <main>
+<html lang="{{ page_meta.lang or 'en' }}">
+  {% include '_head.jinja' %}
+  <body class="{{ (framework.body_class ~ ' d-flex flex-column min-vh-100 bg-body-tertiary') | trim }}">
+    {% set header_title = derived_title %}
+    {% include '_header.jinja' with context %}
+    <main id="main-content" class="flex-grow-1 py-5">
       {% if content.fallback_used %}
-      <div class="fallback-banner">
-        Automatischer LLM-Text fehlt für diese Seite. Bitte Inhalte manuell nachbearbeiten.
+      <div class="container mb-5">
+        <div class="alert alert-warning shadow-sm" role="status">
+          Automatischer LLM-Text fehlt für diese Seite. Bitte Inhalte manuell nachbearbeiten.
+        </div>
       </div>
       {% endif %}
       {% for block in content.blocks %}
@@ -346,18 +48,37 @@
         {% include partial with context %}
       {% endfor %}
       {% if generated_pages %}
-      <section class="section section--links">
-        <div class="section__inner">
-          <h2 class="section__title">Weitere Seiten</h2>
-          <ul class="generated-pages">
-            {% for page in generated_pages %}
-            <li><a href="{{ page.href }}">{{ page.title }}</a></li>
-            {% endfor %}
-          </ul>
+      <section class="section py-5">
+        <div class="container">
+          <div class="row justify-content-center">
+            <div class="col-12 col-lg-10">
+              <div class="section-shell">
+                <h2 class="h3 mb-4">Weitere Seiten</h2>
+                <ul class="generated-pages list-unstyled row gy-4">
+                  {% for page in generated_pages %}
+                  <li class="col-12 col-md-6">
+                    <a class="card h-100 text-decoration-none p-4" href="{{ page.href }}">
+                      <span class="fw-semibold text-body">{{ page.title }}</span>
+                      <span class="text-primary d-inline-flex align-items-center gap-2 mt-2">Seite öffnen<span aria-hidden="true">→</span></span>
+                    </a>
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
       {% endif %}
     </main>
-    {% include "_footer.jinja" %}
+    {% include '_footer.jinja' with context %}
+    {% for src in framework.js_links %}
+    <script src="{{ src }}" defer></script>
+    {% endfor %}
+    {% if page_meta.js_links is iterable %}
+      {% for src in page_meta.js_links %}
+    <script src="{{ src }}" defer></script>
+      {% endfor %}
+    {% endif %}
   </body>
 </html>

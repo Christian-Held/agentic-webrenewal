@@ -1,58 +1,87 @@
 {% set contact = block.data if block.data is mapping else {} %}
 {% set entries = contact.get('items') %}
-{% if entries is not iterable %}
-  {% set structured = [] %}
-{% else %}
-  {% set structured = entries %}
+{% if entries is mapping %}
+  {% set entries = entries.items() %}
 {% endif %}
-{% if structured is mapping %}
-  {% set structured = structured.items() %}
+{% if entries is not iterable %}
+  {% set entries = [] %}
 {% endif %}
 {% set info = namespace(rows=[]) %}
 {% for key, value in contact.items() %}
-  {% if key not in ['items', 'cta_label', 'cta_href', 'cta_text', 'cta_url'] and value %}
-    {% set info.rows = info.rows + [(key, value)] %}
+  {% if key not in ['items', 'cta_label', 'cta_href', 'cta_text', 'cta_url', 'secondary_cta_label', 'secondary_cta_href'] and value %}
+    {% set info.rows = info.rows + [(key|replace('_', ' ')|title, value)] %}
   {% endif %}
 {% endfor %}
-<section class="section section--contact">
-  <div class="section__inner">
-    <h2 class="section__title">{{ block.title or 'Contact' }}</h2>
-    {% if structured %}
-    <dl class="contact-list">
-      {% for entry in structured %}
-      {% if entry is mapping %}
-      {% set label = entry.label %}
-      {% set value = entry.value %}
-      {% elif entry is sequence and entry|length == 2 %}
-      {% set label = entry[0] %}
-      {% set value = entry[1] %}
-      {% else %}
-      {% set label = None %}
-      {% set value = None %}
-      {% endif %}
-      {% if label and value %}
-      <div class="contact-item">
-        <dt class="contact-item__label">{{ label }}</dt>
-        <dd class="contact-item__value">{{ value }}</dd>
+<section class="section py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-10">
+        <div class="section-shell">
+          <div class="row g-4 align-items-start">
+            <div class="col-12 col-lg-6">
+              <h2 class="h3 mb-4">{{ block.title or 'Kontakt' }}</h2>
+              {% if entries %}
+              <dl class="contact-list mb-0">
+                {% for entry in entries %}
+                {% if entry is mapping %}
+                {% set label = entry.label %}
+                {% set value = entry.value %}
+                {% elif entry is sequence and entry|length == 2 %}
+                {% set label = entry[0] %}
+                {% set value = entry[1] %}
+                {% else %}
+                {% set label = None %}
+                {% set value = None %}
+                {% endif %}
+                {% if label and value %}
+                <div class="contact-item">
+                  <dt class="fw-semibold text-uppercase small text-body-secondary">{{ label }}</dt>
+                  <dd class="mb-0">{{ value }}</dd>
+                </div>
+                {% endif %}
+                {% endfor %}
+              </dl>
+              {% elif info.rows %}
+              <ul class="list-unstyled mb-0 contact-list">
+                {% for label, value in info.rows %}
+                <li class="contact-item">
+                  <span class="fw-semibold text-uppercase small text-body-secondary">{{ label }}</span>
+                  <span>{{ value }}</span>
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p class="mb-0">{{ block.body }}</p>
+              {% endif %}
+            </div>
+            <div class="col-12 col-lg-5 ms-lg-auto">
+              <div class="bg-body-tertiary rounded-4 p-4 h-100">
+                <p class="fw-semibold text-uppercase small text-body-secondary mb-3">Direkter Draht</p>
+                {% if contact.email %}
+                <p class="mb-2"><a class="text-decoration-none" href="mailto:{{ contact.email }}">{{ contact.email }}</a></p>
+                {% endif %}
+                {% if contact.phone %}
+                <p class="mb-2"><a class="text-decoration-none" href="tel:{{ contact.phone }}">{{ contact.phone }}</a></p>
+                {% endif %}
+                {% if contact.address %}
+                <p class="mb-0 text-body-secondary">{{ contact.address }}</p>
+                {% elif block.body %}
+                <p class="mb-0 text-body-secondary">{{ block.body }}</p>
+                {% else %}
+                <p class="mb-0 text-body-secondary">Wir melden uns in Kürze bei Ihnen.</p>
+                {% endif %}
+                {% set cta_label = contact.cta_label or contact.cta_text %}
+                {% set cta_href = contact.cta_href or contact.cta_url %}
+                {% if cta_label and cta_href %}
+                <div class="mt-4">
+                  <a class="btn btn-primary" href="{{ cta_href }}">{{ cta_label }}</a>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      {% endif %}
-      {% endfor %}
-    </dl>
-    {% elif info.rows %}
-    <div class="contact-details">
-      {% for pair in info.rows %}
-      <p class="contact-details__row"><strong>{{ pair[0]|replace('_', ' ')|title }}:</strong> {{ pair[1] }}</p>
-      {% endfor %}
     </div>
-    {% else %}
-    <p class="section__body">{{ block.body }}</p>
-    {% endif %}
-    {% set cta_label = contact.cta_label or contact.cta_text %}
-    {% set cta_href = contact.cta_href or contact.cta_url %}
-    {% if cta_label and cta_href %}
-    <p class="section__actions">
-      <a class="button button--secondary" href="{{ cta_href }}">{{ cta_label }}</a>
-    </p>
-    {% endif %}
   </div>
 </section>

@@ -1,296 +1,50 @@
+{% set derived_description = block.body | striptags | truncate(160) if block.body else meta_description %}
+{% set header_subtitle = None %}
+{% if block.type == 'hero' and block.data is mapping %}
+  {% set header_subtitle = block.data.get('tagline') or block.data.get('subtitle') %}
+{% endif %}
+{% set footer_contact = block if block.type == 'contact' else None %}
+{% set page_meta = {
+  'lang': block.data.language if block.data is mapping and block.data.language else 'en',
+  'title': meta_title,
+  'description': derived_description,
+  'canonical': block.data.canonical if block.data is mapping and block.data.canonical else None,
+  'open_graph': {
+    'title': meta_title,
+    'description': derived_description,
+    'type': 'article'
+  },
+  'twitter': {
+    'card': 'summary',
+    'title': meta_title,
+    'description': derived_description
+  }
+} %}
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ meta_title }}</title>
-    {% for href in framework.css_links %}
-    <link rel="stylesheet" href="{{ href }}" />
-    {% endfor %}
-    <style>
-      :root {
-      {% for name, value in css_variables.items() %}
-        {{ name }}: {{ value }};
-      {% endfor %}
-      }
-
-      body {
-        font-family: var(--font-body-family);
-        font-size: var(--font-base-size);
-        line-height: var(--font-line-height);
-        margin: 0;
-        min-height: 100vh;
-        background: linear-gradient(
-            160deg,
-            color-mix(in srgb, var(--color-surface-alt) 88%, transparent),
-            var(--color-surface)
-          )
-          fixed;
-        color: var(--color-text);
-      }
-
-      .site-header {
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        background: color-mix(in srgb, var(--slot-hero-background) 92%, rgba(255, 255, 255, 0.08));
-        color: var(--slot-hero-text);
-        backdrop-filter: blur(12px);
-        border-bottom: 1px solid color-mix(in srgb, var(--slot-hero-background) 70%, transparent);
-        box-shadow: var(--shadow-flat);
-      }
-
-      .site-header__inner {
-        max-width: min(100%, calc(var(--breakpoint-lg) + var(--space-xl)));
-        margin: 0 auto;
-        padding: var(--space-lg) var(--space-md);
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-md);
-      }
-
-      .site-title {
-        margin: 0;
-        font-family: var(--font-heading-family);
-        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.4);
-        font-weight: var(--font-weight-heading);
-      }
-
-      .site-subtitle {
-        margin: 0;
-        max-width: 65ch;
-        color: color-mix(in srgb, var(--slot-hero-text) 80%, #000000 10%);
-      }
-
-      .site-nav {
-        display: flex;
-        justify-content: center;
-      }
-
-      .site-nav__list {
-        list-style: none;
-        display: flex;
-        align-items: center;
-        gap: var(--space-sm);
-        margin: 0;
-        padding: var(--space-xs) var(--space-sm);
-        background: color-mix(in srgb, var(--slot-nav-background) 90%, transparent);
-        border-radius: var(--radius-pill);
-        box-shadow: var(--shadow-flat);
-      }
-
-      .site-nav__item--placeholder {
-        opacity: 0.65;
-        font-style: italic;
-      }
-
-      .site-nav__item--has-children {
-        position: relative;
-      }
-
-      .site-nav__sublist {
-        list-style: none;
-        margin: var(--space-xs) 0 0;
-        padding: var(--space-xs) 0 0;
-        border-left: 1px solid color-mix(in srgb, var(--slot-nav-background) 65%, transparent);
-        display: grid;
-        gap: var(--space-xs);
-      }
-
-      .site-nav__sublist .site-nav__link {
-        font-size: 0.9em;
-      }
-
-      .site-nav__link {
-        color: var(--slot-nav-text);
-        text-decoration: none;
-        font-weight: 600;
-        padding: var(--space-xs) var(--space-sm);
-        border-radius: var(--radius-pill);
-        transition: all 0.2s ease;
-      }
-
-      .site-nav__link:hover,
-      .site-nav__link:focus-visible {
-        color: var(--slot-nav-hover);
-        background: color-mix(in srgb, var(--slot-nav-background) 70%, transparent);
-        outline: none;
-      }
-
-      main {
-        max-width: min(100%, calc(var(--breakpoint-lg) + var(--space-xl)));
-        margin: 0 auto;
-        padding: calc(var(--space-xl) + var(--space-lg)) var(--space-md) var(--space-xl);
-        display: grid;
-        gap: var(--space-xl);
-      }
-
-      .section {
-        background: color-mix(in srgb, var(--color-surface-alt) 96%, transparent);
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--color-border);
-        box-shadow: var(--shadow-raised);
-      }
-
-      .section--hero {
-        background: color-mix(in srgb, var(--slot-hero-background) 88%, transparent);
-        color: var(--slot-hero-text);
-      }
-
-      .section__inner {
-        padding: clamp(var(--space-md), 2.5vw, var(--space-xl));
-        display: grid;
-        gap: var(--space-md);
-      }
-
-      .section__title {
-        margin: 0;
-        font-family: var(--font-heading-family);
-        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.1);
-      }
-
-      .section__body {
-        font-size: 1rem;
-        line-height: var(--font-line-height);
-        white-space: pre-line;
-      }
-
-      .hero__kicker {
-        text-transform: uppercase;
-        letter-spacing: 0.18em;
-        font-size: 0.8rem;
-        margin: 0;
-        opacity: 0.85;
-      }
-
-      .hero__title {
-        margin: 0;
-        font-family: var(--font-heading-family);
-        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.5);
-      }
-
-      .hero__body {
-        margin: 0;
-        white-space: pre-line;
-      }
-
-      .button {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--space-xs);
-        text-decoration: none;
-        font-weight: 600;
-        padding: var(--space-sm) var(--space-md);
-        border-radius: var(--radius-pill);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
-
-      .button--primary {
-        background: var(--color-primary);
-        color: var(--color-on-primary, #ffffff);
-      }
-
-      .button--secondary {
-        background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-        color: var(--color-primary);
-        border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
-      }
-
-      .button:hover,
-      .button:focus-visible {
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-raised);
-      }
-
-      .faq-list,
-      .contact-list {
-        display: grid;
-        gap: var(--space-md);
-        margin: 0;
-        padding: 0;
-      }
-
-      .faq-item__question,
-      .contact-item__label {
-        font-weight: 700;
-        margin: 0 0 var(--space-xs);
-      }
-
-      .faq-item__answer,
-      .contact-item__value {
-        margin: 0;
-        white-space: pre-line;
-      }
-
-      .contact-details__row {
-        margin: 0;
-      }
-
-      .fallback-banner {
-        background: color-mix(in srgb, var(--color-surface-alt) 92%, transparent);
-        border-left: 4px solid var(--color-accent);
-        color: var(--color-text);
-        padding: clamp(var(--space-md), 2vw, var(--space-lg));
-        border-radius: var(--radius-md);
-        margin: 0 auto;
-        box-shadow: var(--shadow-flat);
-      }
-
-      .site-footer {
-        margin-top: auto;
-        background: color-mix(in srgb, var(--slot-footer-background) 95%, transparent);
-        color: var(--slot-footer-text);
-        padding: var(--space-xl) var(--space-md);
-        text-align: center;
-      }
-
-      .site-footer__inner {
-        max-width: min(100%, calc(var(--breakpoint-lg) + var(--space-xl)));
-        margin: 0 auto;
-      }
-
-      .site-footer p {
-        margin: 0;
-        font-size: 0.9rem;
-      }
-
-      @media (max-width: var(--breakpoint-md)) {
-        .site-header__inner {
-          padding: var(--space-lg) var(--space-sm);
-        }
-
-        .site-nav__list {
-          flex-wrap: wrap;
-          justify-content: center;
-        }
-
-        main {
-          padding: var(--space-lg) var(--space-sm) var(--space-xl);
-        }
-
-        .section__inner {
-          padding: clamp(var(--space-md), 4vw, var(--space-lg));
-        }
-      }
-    </style>
-  </head>
-  <body class="{{ framework.body_class }}">
-    {% set header_subtitle = None %}
-    {% if block.type == 'hero' and block.data is mapping %}
-      {% set header_subtitle = block.data.get('tagline') or block.data.get('subtitle') %}
-    {% endif %}
-    {% with header_title=(block.title or meta_title), header_subtitle=header_subtitle, home_href=home_href %}
-      {% include "_header.jinja" %}
-    {% endwith %}
-    <main>
+<html lang="{{ page_meta.lang or 'en' }}">
+  {% include '_head.jinja' %}
+  <body class="{{ (framework.body_class ~ ' d-flex flex-column min-vh-100 bg-body-tertiary') | trim }}">
+    {% set header_title = meta_title %}
+    {% include '_header.jinja' with context %}
+    <main id="main-content" class="flex-grow-1 py-5">
       {% if fallback_used %}
-      <div class="fallback-banner">
-        Automatischer LLM-Text fehlt für diese Seite. Bitte Inhalte manuell nachbearbeiten.
+      <div class="container mb-5">
+        <div class="alert alert-warning shadow-sm" role="status">
+          Automatischer LLM-Text fehlt für diese Seite. Bitte Inhalte manuell nachbearbeiten.
+        </div>
       </div>
       {% endif %}
       {% set partial = section_partials.get(block.type, section_partials['text']) %}
       {% include partial with context %}
     </main>
-    {% include "_footer.jinja" %}
+    {% include '_footer.jinja' with context %}
+    {% for src in framework.js_links %}
+    <script src="{{ src }}" defer></script>
+    {% endfor %}
+    {% if page_meta.js_links is iterable %}
+      {% for src in page_meta.js_links %}
+    <script src="{{ src }}" defer></script>
+      {% endfor %}
+    {% endif %}
   </body>
 </html>
