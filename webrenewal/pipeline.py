@@ -86,12 +86,18 @@ class PostEditPipeline:
                 hash=change_hash,
             )
             latest_preview = self.state_store.latest_preview()
+            preview_info = None
+            if latest_preview:
+                preview_info = {
+                    "id": latest_preview.get("id"),
+                    "path": latest_preview.get("index_path"),
+                }
             build_info = None
             if site_state.build.get("latest_dist"):
                 build_info = {"output_dir": site_state.build.get("latest_dist")}
             return {
                 "change_set": change_set.to_dict(),
-                "preview": latest_preview,
+                "preview": preview_info,
                 "build": build_info,
             }
 
