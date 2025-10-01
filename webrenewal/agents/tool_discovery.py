@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from typing import Iterable
 
+import logging
+
 from .base import Agent
 from ..models import ToolCatalog, ToolInfo
+from ..tracing import log_event
 
 
 class ToolDiscoveryAgent(Agent[None, ToolCatalog]):
@@ -15,7 +18,12 @@ class ToolDiscoveryAgent(Agent[None, ToolCatalog]):
         super().__init__(name="A0.ToolDiscovery")
 
     def run(self, data: None = None) -> ToolCatalog:  # type: ignore[override]
-        self.logger.info("Compiling tool catalog")
+        log_event(
+            self.logger,
+            logging.INFO,
+            "tool_discovery.start",
+            agent=self.name,
+        )
         tools: Iterable[ToolInfo] = [
             ToolInfo(
                 name="@playwright/mcp",
@@ -43,7 +51,13 @@ class ToolDiscoveryAgent(Agent[None, ToolCatalog]):
             ),
         ]
         catalog = ToolCatalog(tools=list(tools))
-        self.logger.debug("Generated tool catalog with %d entries", len(catalog.tools))
+        log_event(
+            self.logger,
+            logging.DEBUG,
+            "tool_discovery.finish",
+            agent=self.name,
+            tools=len(catalog.tools),
+        )
         return catalog
 
 

@@ -13,6 +13,7 @@ import requests
 from .base import Agent
 from ..http import get
 from ..models import ScopePlan
+from ..tracing import log_event
 
 
 class ScopeAgent(Agent[str, ScopePlan]):
@@ -26,10 +27,26 @@ class ScopeAgent(Agent[str, ScopePlan]):
         try:
             response = get(robots_url)
         except requests.RequestException as exc:  # type: ignore[attr-defined]
-            self.logger.warning("Failed to fetch robots.txt: %s", exc, exc_info=True)
+            log_event(
+                self.logger,
+                logging.WARNING,
+                "scope.robots.error",
+                agent=self.name,
+                url=robots_url,
+                error=str(exc),
+                exception=exc.__class__.__name__,
+                exc_info=True,
+            )
             return None
         if response.status_code >= 400:
-            self.logger.info("Robots.txt not available at %s", robots_url)
+            log_event(
+                self.logger,
+                logging.INFO,
+                "scope.robots.missing",
+                agent=self.name,
+                url=robots_url,
+                status=response.status_code,
+            )
             return None
         return response.text
 
@@ -43,7 +60,14 @@ class ScopeAgent(Agent[str, ScopePlan]):
             base_url = f"https://{domain}".rstrip("/")
         else:
             base_url = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
-        self.logger.info("Deriving scope for %s", base_url)
+        log_event(
+            self.logger,
+            logging.INFO,
+            "scope.start",
+            agent=self.name,
+            domain=domain,
+            base_url=base_url,
+        )
 
         robots_text = self._fetch_robots(base_url)
         sitemap_urls: List[str] = []
@@ -51,8 +75,22 @@ class ScopeAgent(Agent[str, ScopePlan]):
             sitemap_urls = self._extract_sitemaps(robots_text)
 
         seed_urls = [base_url]
-        plan = ScopePlan(domain=base_url, seed_urls=seed_urls, sitemap_urls=sitemap_urls, robots_txt=robots_text)
-        self.logger.debug("Scope plan derived with %d sitemap URLs", len(plan.sitemap_urls))
+        plan = ScopePlan(
+            domain=base_url,
+            seed_urls=seed_urls,
+            sitemap_urls=sitemap_urls,
+            robots_txt=robots_text,
+        )
+        log_event(
+            self.logger,
+            logging.DEBUG,
+            "scope.finish",
+            agent=self.name,
+            domain=base_url,
+            seeds=len(seed_urls),
+            sitemaps=len(plan.sitemap_urls),
+            robots=robots_text is not None,
+        )
         return plan
 
 

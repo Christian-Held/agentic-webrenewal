@@ -81,7 +81,8 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                 "rewrite.llm.failure",
                 agent=self.name,
                 domain=domain,
-                error=repr(exc),
+                error=str(exc),
+                exception=exc.__class__.__name__,
                 exc_info=True,
             )
             bundle = self._fallback_bundle(domain, content)
@@ -92,7 +93,8 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                 agent=self.name,
                 domain=domain,
                 reason="llm_failure",
-                error=repr(exc),
+                error=str(exc),
+                exception=exc.__class__.__name__,
                 blocks=len(bundle.blocks),
             )
             return bundle
@@ -267,7 +269,14 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
         ):
             if block_data is None:
                 if section is None:
-                    self.logger.debug("Skipping empty section/block at index %s", index)
+                    log_event(
+                        self.logger,
+                        logging.DEBUG,
+                        "rewrite.blocks.skip",
+                        agent=self.name,
+                        domain=domain,
+                        index=index,
+                    )
                     continue
                 log_event(
                     self.logger,
@@ -406,7 +415,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                     span.note(mode="json_object")
                 except TypeError as exc:
                     if "response_format" not in str(exc):
-                        span.note(error=repr(exc))
+                        span.note(error=str(exc), exception=exc.__class__.__name__)
                         raise
 
                     log_event(
@@ -415,7 +424,8 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                         "rewrite.llm.legacy_client",
                         agent=self.name,
                         domain=domain,
-                        error=repr(exc),
+                        error=str(exc),
+                        exception=exc.__class__.__name__,
                         section=index + 1,
                     )
                     response = await client.responses.create(**request_kwargs)
