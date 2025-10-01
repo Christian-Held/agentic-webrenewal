@@ -172,9 +172,55 @@ class ContentBundle(Serializable):
 
 @dataclass(slots=True)
 class ThemeTokens(Serializable):
-    brand: Dict[str, str]
+    colors: Dict[str, str]
     typography: Dict[str, str]
-    layout: Dict[str, str]
+    spacing: Dict[str, str]
+    radius: Dict[str, str]
+    breakpoints: Dict[str, str]
+    elevation: Dict[str, str]
+    slots: Dict[str, Dict[str, str]]
+
+    def css_variables(self) -> Dict[str, str]:
+        """Return a flattened mapping of CSS custom properties."""
+
+        variables: Dict[str, str] = {}
+
+        for name, value in self.colors.items():
+            variables[f"--color-{name.replace('_', '-')}"] = value
+
+        variables.update(
+            {
+                "--font-body-family": self.typography.get(
+                    "body_family", self.typography.get("font_family", "'Inter', sans-serif")
+                ),
+                "--font-heading-family": self.typography.get(
+                    "heading_family",
+                    self.typography.get("body_family", self.typography.get("font_family", "'Inter', sans-serif")),
+                ),
+                "--font-base-size": self.typography.get("base_size", "16px"),
+                "--font-scale": self.typography.get("scale", "1.25"),
+                "--font-line-height": self.typography.get("line_height", "1.6"),
+                "--font-weight-heading": self.typography.get("heading_weight", "600"),
+            }
+        )
+
+        for name, value in self.spacing.items():
+            variables[f"--space-{name.replace('_', '-')}"] = value
+
+        for name, value in self.radius.items():
+            variables[f"--radius-{name.replace('_', '-')}"] = value
+
+        for name, value in self.breakpoints.items():
+            variables[f"--breakpoint-{name.replace('_', '-')}"] = value
+
+        for name, value in self.elevation.items():
+            variables[f"--shadow-{name.replace('_', '-')}"] = value
+
+        for area, config in self.slots.items():
+            for name, value in config.items():
+                variables[f"--slot-{area.replace('_', '-')}-{name.replace('_', '-')}"] = value
+
+        return variables
 
 
 @dataclass(slots=True)

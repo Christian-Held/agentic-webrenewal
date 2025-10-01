@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from . import configure_logging
+from .config import PipelineConfig, load_pipeline_config
 from .agents import (
     AccessibilityAgent,
     BuilderAgent,
@@ -48,8 +49,13 @@ from .utils import url_to_relative_path
 class WebRenewalPipeline:
     """Coordinate agents to execute the renewal flow."""
 
-    def __init__(self, logger: Optional[logging.Logger] = None) -> None:
+    def __init__(
+        self,
+        logger: Optional[logging.Logger] = None,
+        config: Optional[PipelineConfig] = None,
+    ) -> None:
         self.logger = logger or logging.getLogger("pipeline")
+        self.config = config or load_pipeline_config()
         self.tool_discovery = ToolDiscoveryAgent()
         self.scope = ScopeAgent()
         self.crawler = CrawlerAgent()
@@ -62,7 +68,9 @@ class WebRenewalPipeline:
         self.navigation = NavigationAgent()
         self.plan = PlanProposalAgent()
         self.rewrite = RewriteAgent()
-        self.theming = ThemingAgent()
+        self.theming = ThemingAgent(
+            design_directives=self.config.design_directives
+        )
         self.builder = BuilderAgent()
         self.comparator = ComparatorAgent()
         self.offer = OfferAgent()
@@ -286,9 +294,14 @@ class WebRenewalPipeline:
         )
 
 
-def run_pipeline(domain: str, log_level: int = logging.INFO) -> None:
+def run_pipeline(
+    domain: str,
+    log_level: int = logging.INFO,
+    *,
+    config: Optional[PipelineConfig] = None,
+) -> None:
     configure_logging(level=log_level)
-    pipeline = WebRenewalPipeline()
+    pipeline = WebRenewalPipeline(config=config)
     pipeline.execute(domain)
 
 

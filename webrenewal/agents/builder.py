@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, List, Set
+from typing import Dict, Iterable, List, Set
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -50,6 +50,12 @@ def _merge_navigation(nav: NavModel, blocks: Iterable[tuple[ContentBlock, str]])
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 
 
+def _build_css_variables(theme: ThemeTokens) -> Dict[str, str]:
+    """Flatten the theme tokens into CSS custom properties."""
+
+    return theme.css_variables()
+
+
 class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtifact]):
     """Assemble a static site using Jinja2 templates."""
 
@@ -81,12 +87,15 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
             for block, filename in page_entries
         ]
 
+        css_variables = _build_css_variables(theme)
+
         index_template = self._env.get_template("index.html.jinja")
         index_html = index_template.render(
             content=content,
             theme=theme,
             navigation=augmented_navigation,
             generated_pages=generated_pages,
+            css_variables=css_variables,
         )
         (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
@@ -99,6 +108,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
                 home_href="index.html",
                 meta_title=(block.title or content.meta_title or "Renewed Page"),
                 fallback_used=content.fallback_used,
+                css_variables=css_variables,
             )
             (output_dir / filename).write_text(page_html, encoding="utf-8")
 
