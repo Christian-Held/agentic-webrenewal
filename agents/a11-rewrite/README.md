@@ -170,3 +170,17 @@ Beispiel:
 📄 **Fazit**:
 A11 ist der **Content-Generator und Optimierer**. Er verwandelt die Analyseergebnisse + Plan in **hochwertige, SEO-optimierte Inhalte**.
 Er ist stark LLM-getrieben, benötigt aber Validatoren, um **Schema-Validität und inhaltliche Qualität** sicherzustellen.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Asynchrone LLM-Aufrufe pro Abschnitt unter Trace-Instrumentierung mit strukturierter Rückgabe.
+- Fallback-Strategie nutzt Originalinhalte und dokumentiert Block-Mismatches.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Mehrmodell-Routing, Tonalitäts-Templates und Übersetzungsunterstützung.
+- Evaluation/Scoring der LLM-Kandidaten vor Zusammenführung.
+

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import Agent
+from ..common import Agent
 from ..models import RenewalPlan, ThemeTokens
 
 

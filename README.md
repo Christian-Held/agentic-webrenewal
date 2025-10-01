@@ -35,6 +35,21 @@ Der PoC ist vollständig in Python implementiert. Jedes Agent-Modul liefert klar
 Dataclasses samt Logging. `renewal.py` dient als CLI, `webrenewal/pipeline.py` orchestriert
 den Ablauf von Tool-Discovery bis Memory-Persistenz.
 
+### Paketstruktur (Stand März 2025)
+
+- `webrenewal/agents/common/` hält gemeinsame Basistypen (z. B. `Agent`) und bildet die
+  Grundlage für alle Spezialagenten.
+- Jede Agenten-Implementierung lebt nun in einem eigenen Unterpaket wie
+  `webrenewal/agents/rewrite/` oder `webrenewal/agents/crawler/`. Dadurch lassen sich
+  Abhängigkeiten, Tests und künftige Erweiterungen pro Agent kapseln.
+- Querschnittsfunktionen wie Tracing, Storage und Utilities verbleiben im gleichnamigen
+  Paket `webrenewal/utils`, sodass Agents nur wohldefinierte Einstiegspunkte importieren.
+- Die konzeptionellen Beschreibungen unter `agents/aXX-*/README.md` spiegeln den Code
+  wider und enthalten einen Statusabschnitt zu bereits umgesetzten sowie offenen Arbeiten.
+
+Damit ist klar erkennbar, welche Komponenten bereits funktionsfähig sind und wo noch
+Produktionslücken geschlossen werden müssen.
+
 ---
 
 ## 1) Tools und MCPs (ein Tool pro Kategorie, keine Überschneidung)

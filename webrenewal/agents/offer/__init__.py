@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import Agent
+from ..common import Agent
 from ..models import OfferDoc, PreviewIndex, RenewalPlan
 from ..utils import domain_to_display_name
 

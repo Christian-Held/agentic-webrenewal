@@ -1,11 +1,17 @@
-"""Agent implementations for the Agentic WebRenewal pipeline."""
+"""Agent implementations for the Agentic WebRenewal pipeline.
+
+Each agent now lives in its own subpackage to keep responsibilities and dependencies
+encapsulated. The convenience exports below preserve the public API that the pipeline
+and tests rely on while enabling per-agent extensions.
+"""
 
 from .accessibility import AccessibilityAgent
 from .builder import BuilderAgent
+from .common import Agent
 from .comparator import ComparatorAgent
 from .crawler import CrawlerAgent
-from .memory import MemoryAgent
 from .media import MediaAgent
+from .memory import MemoryAgent
 from .navigation import NavigationAgent
 from .offer import OfferAgent
 from .plan import PlanProposalAgent
@@ -20,11 +26,12 @@ from .tool_discovery import ToolDiscoveryAgent
 
 __all__ = [
     "AccessibilityAgent",
+    "Agent",
     "BuilderAgent",
     "ComparatorAgent",
     "CrawlerAgent",
-    "MemoryAgent",
     "MediaAgent",
+    "MemoryAgent",
     "NavigationAgent",
     "OfferAgent",
     "PlanProposalAgent",

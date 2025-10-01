@@ -148,3 +148,17 @@ Beispiel:
 📄 **Fazit**:
 Der Builder Agent A13 ist der **Produktionsmotor**. Er wandelt Analysen, Inhalte und Designvorgaben in ein **reales, testbares Build-Artefakt** um.
 Damit wird die Pipeline greifbar: von Analyse & Planung (A0–A12) hin zur sichtbaren Website, die Kunden vergleichen und bewerten können.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Rendert statische Seiten via Jinja2 und erstellt eindeutige Slugs für jeden Content-Block.
+- Navigation wird mit neu generierten Seiten zusammengeführt und in `sandbox/newsite/` persistiert.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Asset-Pipeline (CSS/JS Bundling) und komponentenbasierte Templates.
+- Mehrsprachige Builds und Deployment-Targets (S3, Netlify) integrieren.
+
