@@ -7,76 +7,152 @@
     {% if content.meta_description %}<meta name="description" content="{{ content.meta_description }}" />{% endif %}
     <style>
       :root {
-        --brand-primary: {{ theme.brand.primary }};
-        --brand-secondary: {{ theme.brand.secondary }};
-        --brand-accent: {{ theme.brand.accent }};
-        --font-family: {{ theme.typography.font_family }};
-        --base-size: {{ theme.typography.base_size }};
-        --scale: {{ theme.typography.scale }};
-        --border-radius: {{ theme.layout.border_radius }};
-        --container-width: {{ theme.layout.container_width }};
+      {% for name, value in css_variables.items() %}
+        {{ name }}: {{ value }};
+      {% endfor %}
       }
+
       body {
-        font-family: var(--font-family);
+        font-family: var(--font-body-family);
+        font-size: var(--font-base-size);
+        line-height: var(--font-line-height);
         margin: 0;
-        background: var(--brand-secondary);
-        color: #212529;
+        background: var(--color-surface);
+        color: var(--color-text);
       }
+
       header {
-        background: var(--brand-primary);
-        color: white;
-        padding: 2rem 1rem;
+        background: var(--slot-hero-background);
+        color: var(--slot-hero-text);
+        padding: var(--space-xl) var(--space-md);
         text-align: center;
+        box-shadow: var(--shadow-flat);
       }
+
+      header h1 {
+        margin: 0 0 var(--space-sm);
+        font-family: var(--font-heading-family);
+        font-weight: var(--font-weight-heading);
+        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.5);
+      }
+
+      header p {
+        margin: 0 auto;
+        max-width: 65ch;
+        opacity: 0.85;
+      }
+
+      nav {
+        margin-top: var(--space-lg);
+        display: flex;
+        justify-content: center;
+      }
+
       nav ul {
         list-style: none;
         display: flex;
-        gap: 1rem;
+        gap: var(--space-md);
         justify-content: center;
-        padding: 0;
+        padding: var(--space-xs) var(--space-sm);
+        margin: 0;
+        background: var(--slot-nav-background);
+        border-radius: var(--radius-pill);
+        box-shadow: var(--shadow-flat);
       }
+
       nav a {
-        color: white;
+        color: var(--slot-nav-text);
         text-decoration: none;
         font-weight: 600;
+        padding: var(--space-xs) var(--space-sm);
+        border-radius: var(--radius-pill);
+        transition: color 0.2s ease, background 0.2s ease;
       }
+
+      nav a:hover,
+      nav a:focus-visible {
+        color: var(--slot-nav-hover);
+        background: rgba(255, 255, 255, 0.08);
+        outline: none;
+      }
+
       main {
-        max-width: var(--container-width);
+        max-width: min(100%, var(--breakpoint-xl));
         margin: 0 auto;
-        padding: 2rem 1rem;
+        padding: var(--space-xl) var(--space-md);
+        display: grid;
+        gap: var(--space-lg);
       }
+
       section {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 5px 20px rgba(11, 114, 133, 0.08);
+        background: var(--color-surface-alt);
+        border-radius: var(--radius-lg);
+        padding: var(--space-lg);
+        border: 1px solid var(--color-border);
+        box-shadow: var(--shadow-raised);
       }
+
       section.fallback-block {
-        border: 2px dashed #d14343;
+        border: 2px dashed var(--color-accent);
       }
+
       h2 {
-        margin-top: 0;
+        margin: 0 0 var(--space-sm);
+        font-family: var(--font-heading-family);
+        font-weight: var(--font-weight-heading);
       }
+
       section p {
-        line-height: 1.6;
+        margin: 0;
         white-space: pre-line;
       }
 
       .fallback-banner {
-        background: #ffe5e5;
-        border: 1px solid #d14343;
-        color: #8b1c1c;
-        padding: 1rem 1.25rem;
-        border-radius: var(--border-radius);
-        margin-bottom: 1.5rem;
+        border-radius: var(--radius-md);
+        padding: var(--space-md);
+        border-left: 4px solid var(--color-accent);
+        background: var(--color-surface-alt);
+      }
+
+      .generated-pages {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: var(--space-sm);
+      }
+
+      .generated-pages a {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-weight: 600;
       }
 
       footer {
         text-align: center;
-        padding: 1rem;
-        background: #0f172a;
-        color: white;
+        padding: var(--space-lg) var(--space-md);
+        background: var(--slot-footer-background);
+        color: var(--slot-footer-text);
+        margin-top: var(--space-xl);
+      }
+
+      footer p {
+        margin: 0;
+        font-size: 0.875rem;
+      }
+
+      @media (max-width: var(--breakpoint-md)) {
+        nav ul {
+          flex-wrap: wrap;
+        }
+
+        header {
+          padding: var(--space-lg) var(--space-sm);
+        }
+
+        main {
+          padding: var(--space-lg) var(--space-sm);
+        }
       }
     </style>
   </head>
@@ -107,7 +183,7 @@
       {% endfor %}
       <section>
         <h2>Weitere Seiten</h2>
-        <ul>
+        <ul class="generated-pages">
           {% for page in generated_pages %}
           <li><a href="{{ page.href }}">{{ page.title }}</a></li>
           {% endfor %}
