@@ -6,8 +6,8 @@ from typing import List
 
 from bs4 import BeautifulSoup
 
-from .base import Agent
-from ..models import CrawlResult, NavModel, NavigationItem
+from ..common import Agent
+from ...models import CrawlResult, NavModel, NavigationItem
 
 
 class NavigationAgent(Agent[CrawlResult, NavModel]):

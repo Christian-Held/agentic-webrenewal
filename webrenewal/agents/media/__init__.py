@@ -8,8 +8,8 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from .base import Agent
-from ..models import CrawlResult, MediaInfo, MediaReport
+from ..common import Agent
+from ...models import CrawlResult, MediaInfo, MediaReport
 
 
 class MediaAgent(Agent[CrawlResult, MediaReport]):
