@@ -268,7 +268,6 @@
         transform: translateX(4px);
       }
 
-
       .fallback-banner {
         border-radius: var(--radius-md);
         padding: clamp(var(--space-md), 2vw, var(--space-lg));
@@ -304,7 +303,6 @@
         .site-nav__list {
           flex-wrap: wrap;
           justify-content: center;
-
         }
       }
 
@@ -321,17 +319,15 @@
   <body class="{{ framework.body_class }}">
     {% set header_title = content.meta_title or 'Renewed Website' %}
     {% set header_subtitle = None %}
-    {% for block in content.blocks %}
-      {% if block.type == 'hero' %}
-        {% if block.title %}
-          {% set header_title = block.title %}
-        {% endif %}
-        {% if block.data is mapping %}
-          {% set header_subtitle = block.data.get('tagline') or block.data.get('subtitle') %}
-        {% endif %}
-        {% break %}
+    {% set hero_block = (content.blocks | selectattr('type', 'equalto', 'hero') | list | first) %}
+    {% if hero_block %}
+      {% if hero_block.title %}
+        {% set header_title = hero_block.title %}
       {% endif %}
-    {% endfor %}
+      {% if hero_block.data is mapping %}
+        {% set header_subtitle = hero_block.data.get('tagline') or hero_block.data.get('subtitle') %}
+      {% endif %}
+    {% endif %}
     {% include "_header.jinja" with header_title=header_title header_subtitle=header_subtitle home_href='index.html' %}
     <main>
       {% if content.fallback_used %}
