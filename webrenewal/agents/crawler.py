@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from typing import Deque, Dict, List, Set
+from typing import Deque, List, Set
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 from .base import Agent
 from ..http import get
 from ..models import CrawlResult, PageContent, ScopePlan
+from ..tracing import log_event
 
 _MAX_PAGES = 10
 
@@ -31,7 +32,15 @@ class CrawlerAgent(Agent[ScopePlan, CrawlResult]):
         queue: Deque[str] = deque(plan.seed_urls)
         pages: List[PageContent] = []
 
-        self.logger.info("Starting crawl with up to %d pages", _MAX_PAGES)
+        log_event(
+            self.logger,
+            logging.INFO,
+            "crawler.start",
+            agent=self.name,
+            domain=plan.domain,
+            max_pages=_MAX_PAGES,
+            seeds=len(plan.seed_urls),
+        )
         while queue and len(pages) < _MAX_PAGES:
             current_url = queue.popleft()
             if current_url in visited:
@@ -40,8 +49,15 @@ class CrawlerAgent(Agent[ScopePlan, CrawlResult]):
             try:
                 response = get(current_url, headers={"User-Agent": "AgenticWebRenewal/0.1"})
             except requests.RequestException as exc:  # type: ignore[attr-defined]
-                self.logger.error(
-                    "Failed to fetch %s: %s", current_url, exc, exc_info=True
+                log_event(
+                    self.logger,
+                    logging.ERROR,
+                    "crawler.fetch.error",
+                    agent=self.name,
+                    url=current_url,
+                    error=str(exc),
+                    exception=exc.__class__.__name__,
+                    exc_info=True,
                 )
                 continue
             pages.append(
@@ -61,7 +77,15 @@ class CrawlerAgent(Agent[ScopePlan, CrawlResult]):
                 absolute = urljoin(current_url, href)
                 if self._is_same_domain(plan.domain, absolute) and absolute not in visited:
                     queue.append(absolute)
-        self.logger.info("Crawled %d pages", len(pages))
+        log_event(
+            self.logger,
+            logging.INFO,
+            "crawler.finish",
+            agent=self.name,
+            domain=plan.domain,
+            pages=len(pages),
+            visited=len(visited),
+        )
         return CrawlResult(pages=pages)
 
 

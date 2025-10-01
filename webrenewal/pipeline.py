@@ -208,13 +208,32 @@ class WebRenewalPipeline:
             "class": agent.__class__.__name__,
         }
 
+        log_event(
+            self.logger,
+            logging.INFO,
+            "agent.start",
+            **metadata,
+        )
+
         with trace(f"{agent_label}.run", logger=self.logger, **metadata):
-            result = agent.run(payload)
+            try:
+                result = agent.run(payload)
+            except Exception as exc:
+                log_event(
+                    self.logger,
+                    logging.ERROR,
+                    "agent.error",
+                    **metadata,
+                    error=str(exc),
+                    exception=exc.__class__.__name__,
+                    exc_info=True,
+                )
+                raise
 
         log_event(
             self.logger,
             logging.INFO,
-            "agent.result",
+            "agent.finish",
             **metadata,
             summary=self._summarise_output(result),
         )
