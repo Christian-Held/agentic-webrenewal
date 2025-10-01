@@ -29,7 +29,7 @@ from .agents import (
     ToolDiscoveryAgent,
 )
 from .agents.base import Agent
-from .llm import BaseLLMClient, create_llm_client, default_model_for
+from .llm import LLMService, create_llm_service, default_model_for, get_tracer
 from .models import (
     A11yReport,
     ContentBundle,
@@ -62,7 +62,9 @@ class WebRenewalPipeline:
         self.logger = logger or logging.getLogger("pipeline")
         self.config = config or load_pipeline_config()
         self._llm_provider = llm_provider
-        self._llm_client: BaseLLMClient | None = create_llm_client(llm_provider)
+        self._llm_client: LLMService | None = create_llm_service(
+            llm_provider, tracer=get_tracer()
+        )
         resolved_model = llm_model or default_model_for(llm_provider)
         self._llm_model = resolved_model
         if self._llm_client is None:

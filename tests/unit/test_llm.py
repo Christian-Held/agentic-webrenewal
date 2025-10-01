@@ -1,39 +1,44 @@
-"""Tests for :mod:`webrenewal.llm`."""
-
 from __future__ import annotations
 
 import asyncio
-from types import SimpleNamespace
-from typing import Any, Dict, Iterable, List
+from dataclasses import dataclass
+from typing import Any, Dict, List, Sequence
 
+import httpx
 import pytest
 
 from webrenewal.llm import (
-    BaseLLMClient,
-    LLMError,
-    LLMResponse,
-    OllamaClient,
-    _normalise_messages,
+    JSONValidationError,
+    LLMService,
     create_llm_client,
+    create_llm_service,
     default_model_for,
+    get_tracer,
+    list_available_providers,
 )
+from webrenewal.llm.clients import LLMClient, ProviderResponse
 
 
-class DummyClient(BaseLLMClient):
-    """Simple client returning canned responses for unit tests."""
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
 
-    def __init__(self, response: str) -> None:
-        self._response = response
+
+class StubLLMClient(LLMClient):
+    """Deterministic client returning queued responses."""
+
+    def __init__(self, responses: Sequence[ProviderResponse]) -> None:
+        self._responses = list(responses)
         self.calls: List[Dict[str, Any]] = []
 
     async def _complete(
         self,
-        messages: Iterable[Dict[str, Any]],
+        messages: Sequence[Dict[str, Any]],
         *,
         model: str,
         temperature: float | None,
         response_format: str | None,
-    ) -> LLMResponse:
+    ) -> ProviderResponse:
         self.calls.append(
             {
                 "messages": list(messages),
@@ -42,126 +47,138 @@ class DummyClient(BaseLLMClient):
                 "response_format": response_format,
             }
         )
-        return LLMResponse(text=self._response)
+        if not self._responses:
+            raise RuntimeError("No more responses configured")
+        return self._responses.pop(0)
 
 
-def test_base_client_complete_json_parses_payload() -> None:
-    """Given a JSON string When complete_json is used Then the parsed data is attached to the response."""
+@dataclass
+class BlockingClient(LLMClient):
+    """Client raising a timeout error."""
 
-    client = DummyClient('{"answer": 42}')
+    exception: Exception
 
-    response = asyncio.run(client.complete_json([{"role": "user", "content": "Hi"}], model="demo"))
-
-    assert response.data == {"answer": 42}
-    assert client.calls[0]["response_format"] == "json_object"
-
-
-def test_complete_text_preserves_arguments() -> None:
-    """Given messages When complete_text is invoked Then the underlying implementation receives them unchanged."""
-
-    client = DummyClient("Hello")
-    asyncio.run(client.complete_text([{"role": "system", "content": "Hi"}], model="demo", temperature=0.3))
-
-    call = client.calls[0]
-    assert call["model"] == "demo"
-    assert call["temperature"] == 0.3
-    assert call["response_format"] is None
+    async def _complete(
+        self,
+        messages: Sequence[Dict[str, Any]],
+        *,
+        model: str,
+        temperature: float | None,
+        response_format: str | None,
+    ) -> ProviderResponse:
+        raise self.exception
 
 
-def test_ollama_client_returns_text(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Given a successful response When OllamaClient completes Then the message content is concatenated."""
+@pytest.mark.anyio
+async def test_complete_json_validates_schema() -> None:
+    """Given a valid JSON response When schema is provided Then payload is validated."""
 
-    async def fake_post(self, path: str, json: Dict[str, Any]):  # noqa: D401 - stub
-        return SimpleNamespace(
-            raise_for_status=lambda: None,
-            json=lambda: {
-                "message": {
-                    "content": [
-                        {"type": "text", "text": "Hello"},
-                        {"type": "text", "text": " World"},
-                    ]
-                }
-            },
-        )
+    stub = StubLLMClient([ProviderResponse(text='{"answer": 42}')])
+    service = LLMService(provider="stub", client=stub, tracer=get_tracer())
 
-    class DummyAsyncClient:
-        def __init__(self, *args, **kwargs) -> None:  # noqa: D401 - stub
-            pass
-
-        async def __aenter__(self) -> "DummyAsyncClient":
-            return self
-
-        async def __aexit__(self, exc_type, exc, tb) -> None:  # noqa: D401 - stub
-            return None
-
-        post = fake_post
-
-    monkeypatch.setattr("httpx.AsyncClient", DummyAsyncClient)
-
-    client = OllamaClient(host="http://localhost:11434")
-    response = asyncio.run(client.complete_text([{"role": "user", "content": "Hello"}], model="llama"))
-
-    assert response.text.strip() == "Hello World"
-
-
-def test_normalise_messages_handles_varied_content() -> None:
-    """Given mixed message payloads When normalised Then role and stringified content are returned."""
-
-    messages = _normalise_messages(
-        [
-            {"role": "system", "content": {"json": True}},
-            {"content": "plain"},
-        ]
+    completion = await service.complete_json(
+        [{"role": "user", "content": "Give me JSON"}],
+        model="stub-model",
+        schema={"type": "object", "properties": {"answer": {"type": "number"}}, "required": ["answer"]},
     )
 
-    assert messages[0]["content"].startswith("{")
-    assert messages[1]["role"] == "user"
+    assert completion.data == {"answer": 42}
+    assert stub.calls[0]["response_format"] == "json_object"
 
 
-def test_create_llm_client_returns_none_without_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Given missing environment variables When requesting OpenAI Then no client is created."""
+@pytest.mark.anyio
+async def test_complete_json_retries_on_invalid_payload() -> None:
+    """Given malformed JSON When completing Then the service retries with stricter instructions."""
+
+    stub = StubLLMClient(
+        [
+            ProviderResponse(text="not-json"),
+            ProviderResponse(text='{"answer": 7}'),
+        ]
+    )
+    service = LLMService(provider="stub", client=stub, tracer=get_tracer())
+
+    completion = await service.complete_json(
+        [{"role": "user", "content": "Return json"}],
+        model="stub-model",
+        schema={"type": "object"},
+    )
+
+    assert completion.data == {"answer": 7}
+    assert len(stub.calls) == 2
+
+
+@pytest.mark.anyio
+async def test_complete_json_raises_after_retries() -> None:
+    """Given repeated invalid responses When completing Then JSONValidationError is raised."""
+
+    stub = StubLLMClient([ProviderResponse(text="oops"), ProviderResponse(text="still bad")])
+    service = LLMService(provider="stub", client=stub, tracer=get_tracer())
+
+    with pytest.raises(JSONValidationError):
+        await service.complete_json(
+            [{"role": "user", "content": "Return json"}],
+            model="stub-model",
+            schema={"type": "object"},
+        )
+
+
+@pytest.mark.anyio
+async def test_complete_text_propagates_empty_response() -> None:
+    """Given empty response text When completing Then a ValueError bubbles up."""
+
+    stub = StubLLMClient([ProviderResponse(text="")])
+    service = LLMService(provider="stub", client=stub, tracer=get_tracer())
+
+    with pytest.raises(ValueError):
+        await service.complete_text(
+            [{"role": "user", "content": "say"}],
+            model="stub-model",
+        )
+
+
+@pytest.mark.anyio
+async def test_complete_json_propagates_timeout() -> None:
+    """Given a timeout error When completing JSON Then the exception is propagated."""
+
+    timeout = httpx.ReadTimeout("timed out")
+    client = BlockingClient(exception=timeout)
+    service = LLMService(provider="stub", client=client, tracer=get_tracer())
+
+    with pytest.raises(httpx.ReadTimeout):
+        await service.complete_json(
+            [{"role": "user", "content": "Return json"}],
+            model="stub-model",
+            schema={"type": "object"},
+        )
+
+
+def test_list_available_providers_contains_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure catalog exposes provider defaults and respects environment overrides."""
+
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-test")
+    catalog = list_available_providers()
+
+    assert catalog["openai"]["default_model"] == "gpt-test"
+    assert "credential_env" in catalog["openai"]
+
+
+def test_create_llm_client_requires_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When credentials are missing for API providers Then None is returned."""
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
     assert create_llm_client("openai") is None
 
 
-def test_create_llm_client_supports_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Given the ollama provider When creating a client Then an OllamaClient instance is returned."""
+def test_create_llm_service_wraps_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ollama does not require credentials so the service is created."""
 
-    client = create_llm_client("ollama", host="http://fake")
-
-    assert isinstance(client, OllamaClient)
-
-
-def test_default_model_for_provider(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Given provider overrides When default_model_for is called Then environment values win."""
-
-    monkeypatch.setenv("OPENAI_MODEL", "gpt-test")
-
-    assert default_model_for("openai") == "gpt-test"
-    assert default_model_for("ollama").startswith("llama")
+    service = create_llm_service("ollama", host="http://fake")
+    assert isinstance(service, LLMService)
 
 
-def test_ollama_client_raises_on_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Given an empty response When OllamaClient completes Then an LLMError is raised."""
+def test_default_model_for_prefers_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Environment model overrides default values."""
 
-    class DummyAsyncClient:
-        def __init__(self, *args, **kwargs) -> None:
-            pass
-
-        async def __aenter__(self) -> "DummyAsyncClient":
-            return self
-
-        async def __aexit__(self, exc_type, exc, tb) -> None:
-            return None
-
-        async def post(self, path: str, json: Dict[str, Any]):  # noqa: D401 - stub
-            return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {"message": {"content": []}})
-
-    monkeypatch.setattr("httpx.AsyncClient", DummyAsyncClient)
-
-    client = OllamaClient(host="http://localhost:11434")
-    with pytest.raises(LLMError):
-        asyncio.run(client.complete_text([{"role": "user", "content": ""}], model="llama"))
-
+    monkeypatch.setenv("OLLAMA_MODEL", "custom-ollama")
+    assert default_model_for("ollama") == "custom-ollama"
