@@ -25,22 +25,53 @@ def _is_dark(color: str) -> bool:
 class ThemingAgent(Agent[RenewalPlan, ThemeTokens]):
     """Generate design tokens for the rebuilt site."""
 
-    def __init__(self, *, design_directives: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        design_directives: str | None = None,
+        theme_style: str | None = None,
+        css_framework: str = "vanilla",
+    ) -> None:
         super().__init__(name="A12.Theming")
         self._design_directives = design_directives or ""
+        self._theme_style = theme_style or ""
+        self._css_framework = css_framework or ""
 
     def run(self, plan: RenewalPlan) -> ThemeTokens:
-        directives = self._design_directives.lower()
+        directives_parts = [self._design_directives, self._theme_style, self._css_framework]
+        directives = " ".join(part.strip().lower() for part in directives_parts if part)
         tokens = self._base_tokens()
 
+        self._apply_framework_rules(tokens, directives)
         self._apply_palette_rules(tokens["colors"], directives)
         self._apply_typography_rules(tokens["typography"], directives)
         self._apply_spacing_rules(tokens["spacing"], directives)
         self._apply_mood_rules(tokens["colors"], directives)
+        self._apply_shape_rules(tokens["radius"], directives)
+        self._apply_elevation_rules(tokens["elevation"], directives)
 
         tokens["slots"] = self._build_slots(tokens["colors"])
 
         return ThemeTokens(**tokens)
+
+    def _apply_framework_rules(self, tokens: Dict[str, Dict[str, str]], directives: str) -> None:
+        if "tailwind" in directives:
+            tokens["spacing"].update({"md": "1.25rem", "lg": "2rem", "xl": "3.5rem"})
+            tokens["typography"].update(
+                {
+                    "body_family": "'Inter', 'Helvetica Neue', sans-serif",
+                    "heading_family": "'Poppins', 'Inter', sans-serif",
+                    "heading_weight": "600",
+                }
+            )
+        if "bootstrap" in directives:
+            tokens["typography"].update(
+                {
+                    "body_family": "'Helvetica Neue', Arial, sans-serif",
+                    "heading_family": "'Poppins', 'Helvetica Neue', Arial, sans-serif",
+                    "heading_weight": "600",
+                }
+            )
 
     def _base_tokens(self) -> Dict[str, Dict[str, str]]:
         colors = {
@@ -121,14 +152,6 @@ class ThemingAgent(Agent[RenewalPlan, ThemeTokens]):
             )
 
     def _apply_typography_rules(self, typography: Dict[str, str], directives: str) -> None:
-        if "bootstrap" in directives:
-            typography.update(
-                {
-                    "body_family": "'Helvetica Neue', Arial, sans-serif",
-                    "heading_family": "'Poppins', 'Helvetica Neue', Arial, sans-serif",
-                    "heading_weight": "600",
-                }
-            )
         if "serif" in directives:
             typography.update(
                 {
@@ -158,6 +181,30 @@ class ThemingAgent(Agent[RenewalPlan, ThemeTokens]):
             colors["accent"] = "#228be6" if "accent" in colors else "#228be6"
         if any(token in directives for token in ("warm", "freundlich", "friendly")):
             colors.update({"accent": "#f59f00", "secondary": "#fff4e6"})
+
+    def _apply_shape_rules(self, radius: Dict[str, str], directives: str) -> None:
+        if any(token in directives for token in ("rounded", "soft", "pill")):
+            radius.update({"sm": "0.5rem", "md": "1rem", "lg": "1.5rem", "pill": "999px"})
+        if any(token in directives for token in ("square", "sharp", "minimal")):
+            radius.update({"sm": "0.125rem", "md": "0.25rem", "lg": "0.375rem", "pill": "2rem"})
+
+    def _apply_elevation_rules(self, elevation: Dict[str, str], directives: str) -> None:
+        if any(token in directives for token in ("shadow", "elevated", "depth")):
+            elevation.update(
+                {
+                    "flat": "0 4px 10px rgba(15, 23, 42, 0.12)",
+                    "raised": "0 18px 40px rgba(15, 23, 42, 0.18)",
+                    "overlay": "0 32px 70px rgba(15, 23, 42, 0.28)",
+                }
+            )
+        if any(token in directives for token in ("flat", "minimal", "clean")):
+            elevation.update(
+                {
+                    "flat": "0 1px 2px rgba(15, 23, 42, 0.06)",
+                    "raised": "0 6px 12px rgba(15, 23, 42, 0.12)",
+                    "overlay": "0 12px 24px rgba(15, 23, 42, 0.16)",
+                }
+            )
 
     def _build_slots(self, colors: Dict[str, str]) -> Dict[str, Dict[str, str]]:
         nav_text = "#ffffff" if _is_dark(colors["primary"]) else colors.get("text", "#212529")

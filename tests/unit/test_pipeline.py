@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from webrenewal.models import CrawlResult, PageContent
+from webrenewal.models import CrawlResult, PageContent, RenewalConfig
 from webrenewal.pipeline import WebRenewalPipeline
 
 
@@ -17,7 +17,16 @@ def pipeline(monkeypatch: pytest.MonkeyPatch, sandbox_dir: Path) -> WebRenewalPi
 
     logger = logging.getLogger("pipeline-test")
     logger.setLevel(logging.CRITICAL)
-    return WebRenewalPipeline(logger=logger)
+    config = RenewalConfig(
+        domain="https://example.com",
+        renewal_mode="full",
+        css_framework="vanilla",
+        theme_style="",
+        llm_provider="openai",
+        llm_model=None,
+        log_level="CRITICAL",
+    )
+    return WebRenewalPipeline(renewal_config=config, logger=logger)
 
 
 def test_summarise_output_handles_model(pipeline: WebRenewalPipeline) -> None:

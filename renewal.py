@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import logging
 import os
 
 from dotenv import load_dotenv
+
+from webrenewal.models import RenewalConfig
 from webrenewal.pipeline import run_pipeline
 
 
@@ -19,10 +20,20 @@ def parse_args() -> argparse.Namespace:
         help="Python logging level (default: INFO)",
     )
     parser.add_argument(
+        "--renewal-mode",
+        default="full",
+        choices=["full", "text-only", "seo-only", "design-only"],
+        help="Select which parts of the pipeline should run.",
+    )
+    parser.add_argument(
         "--css-framework",
         default="vanilla",
-        choices=["bootstrap", "tailwind", "vanilla"],
-        help="Select the CSS framework used for generated templates.",
+        help="Name of the CSS framework or design system to target.",
+    )
+    parser.add_argument(
+        "--theme-style",
+        default="",
+        help="Comma separated style hints (colours, shapes, effects).",
     )
     parser.add_argument(
         "--llm",
@@ -41,14 +52,16 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     load_dotenv()
     args = parse_args()
-    log_level = getattr(logging, args.log_level.upper(), logging.INFO)
-    run_pipeline(
-        args.domain,
-        log_level=log_level,
+    config = RenewalConfig(
+        domain=args.domain,
+        renewal_mode=args.renewal_mode,
         css_framework=args.css_framework,
+        theme_style=args.theme_style,
         llm_provider=args.llm,
         llm_model=args.llm_model,
+        log_level=args.log_level,
     )
+    run_pipeline(config)
 
 
 if __name__ == "__main__":

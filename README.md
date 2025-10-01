@@ -167,6 +167,14 @@ Die Pipeline unterstützt mehrere Provider. Ohne weitere Parameter wird OpenAI m
 | Groq      | `GROQ_API_KEY` | `GROQ_BASE_URL`, `GROQ_MODEL` |
 | Ollama    | – (lokaler Dienst) | `OLLAMA_HOST`, `OLLAMA_MODEL` |
 
+Neben Provider und Modell können nun auch **Renewal-Mode**, **CSS-Framework** und eine freie **Theme-Style**-Beschreibung angegeben werden.
+
+| Option | Beschreibung |
+|--------|--------------|
+| `--renewal-mode {full,text-only,seo-only,design-only}` | Steuert, welche Agenten laufen: `full` aktiviert alle Schritte, `text-only` führt nur das Rewrite (A11) aus, `design-only` überspringt den Rewrite und fokussiert auf Theming/Build, `seo-only` liefert ausschließlich SEO/Metadata-Optimierungen. |
+| `--css-framework <name>` | Beliebiger Framework-/Library-Name. Bekannte Werte wie `bootstrap`, `tailwind` oder `vanilla` verwenden hinterlegte Templates, unbekannte Werte werden als Custom-Framework in Theming/Builder weitergereicht. |
+| `--theme-style "…"` | Komma-separierte Stilhinweise (Farben, Formen, Effekte, Typografie). Diese Hinweise landen direkt beim Theming- und Builder-Agenten. |
+
 Beispiele für den CLI-Aufruf (Modell optional, ansonsten greift der Default pro Provider):
 
 ```bash
@@ -187,11 +195,28 @@ python renewal.py https://www.physioheld.ch --llm deepseek --llm-model deepseek-
 
 # Groq
 python renewal.py https://www.physioheld.ch --llm groq --llm-model llama3-70b-8192
+
+# Text-Only Optimierung
+python renewal.py https://www.physioheld.ch --renewal-mode text-only --theme-style "klar, sachlich"
+
+# Design-Refresh ohne Copy-Änderungen
+python renewal.py https://www.physioheld.ch --renewal-mode design-only --css-framework material --theme-style "modern, blue/white, rounded buttons, shadow"
+
+# SEO-Fokus
+python renewal.py https://www.physioheld.ch --renewal-mode seo-only --theme-style ""
 ```
 
 Alle Artefakte landen in `sandbox/`, inklusive Crawl-Daten, Analysen, Plan, Rewrite,
 Theming-Tokens, einer vollständigen Kopie der Originalseiten (`sandbox/original/`),
 dem mehrseitigen Build (`sandbox/newsite/`), Diff-Preview und Angebot.
+
+Zusätzlich wird die komplette CLI-Konfiguration als `sandbox/config.json` abgelegt, so dass spätere API-Calls die gleichen Settings übernehmen können.
+
+**Erweiterungstipps:**
+
+* Neue Frameworks lassen sich über `--css-framework` direkt anfragen. Soll ein Preset ergänzt werden, kann in `BuilderAgent` eine passende CDN-Konfiguration hinterlegt werden.
+* Stilhinweise funktionieren am besten als kurze Komma-Liste: Farben („modern blue/white“), Formen („rounded buttons“), Effekte („shadow, glassmorphism“) oder Typografie („serif, elegant“).
+* Eigene Renewal-Modes können durch eine Erweiterung des `RenewalConfig`-Schemas sowie der Modusschalter in `WebRenewalPipeline` ergänzt werden.
 
 ### MCP Server für LLMs
 

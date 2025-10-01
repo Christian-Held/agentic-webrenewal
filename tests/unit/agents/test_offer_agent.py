@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from webrenewal.agents.offer import OfferAgent
-from webrenewal.models import PreviewIndex, RenewalPlan
+from webrenewal.models import DiffResult, PreviewIndex, RenewalPlan
 
 
 def test_offer_agent_generates_summary(sample_plan, sample_preview_index) -> None:
@@ -22,7 +22,7 @@ def test_offer_agent_enforces_minimum_price(sample_plan) -> None:
 
     low_plan = RenewalPlan(goals=[], actions=[], estimate_hours=2)
     agent = OfferAgent()
-    preview = PreviewIndex(diffs=[object()])
+    preview = PreviewIndex(diffs=[DiffResult(page="/", diff="")])
     offer = agent.run(("example.com", low_plan, preview))
 
     assert offer.pricing_eur == 600.0

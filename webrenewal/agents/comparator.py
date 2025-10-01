@@ -26,8 +26,17 @@ class _GeneratedPage:
 class ComparatorAgent(Agent[tuple[CrawlResult, str], PreviewIndex]):
     """Generate textual diffs between the original and rebuilt site."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        renewal_mode: str = "full",
+        style_hints: str = "",
+        css_framework: str = "",
+    ) -> None:
         super().__init__(name="A14.Comparator")
+        self._renewal_mode = renewal_mode
+        self._style_hints = style_hints
+        self._css_framework = css_framework
 
     def run(self, data: tuple[CrawlResult, str]) -> PreviewIndex:
         crawl, newsite_dir = data
@@ -76,7 +85,7 @@ class ComparatorAgent(Agent[tuple[CrawlResult, str], PreviewIndex]):
                 lineterm="",
             )
             diffs.append(DiffResult(page=page.url, diff="\n".join(diff)))
-        return PreviewIndex(diffs=diffs)
+        return PreviewIndex(diffs=diffs, style_deltas=self._style_delta_notes())
 
     def _locate_new_page(
         self,
@@ -225,6 +234,19 @@ class ComparatorAgent(Agent[tuple[CrawlResult, str], PreviewIndex]):
         if heading and heading.get_text(strip=True):
             return heading.get_text(strip=True)
         return None
+
+    def _style_delta_notes(self) -> List[str]:
+        if self._renewal_mode != "design-only":
+            return []
+        deltas: List[str] = []
+        if self._css_framework:
+            deltas.append(f"Design regenerated using '{self._css_framework}' focus.")
+        hints = [hint.strip() for hint in self._style_hints.split(",") if hint.strip()]
+        if hints:
+            deltas.append("Applied visual cues: " + ", ".join(hints))
+        if not deltas:
+            deltas.append("Design-only mode executed without explicit style hints.")
+        return deltas
 
 
 __all__ = ["ComparatorAgent"]

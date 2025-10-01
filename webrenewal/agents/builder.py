@@ -100,18 +100,35 @@ def _build_css_variables(theme: ThemeTokens) -> Dict[str, str]:
     return theme.css_variables()
 
 
+def _create_framework_meta(css_framework: str, style_hints: str) -> Dict[str, object]:
+    preset = dict(_FRAMEWORK_PRESETS.get(css_framework, {}))
+    if not preset:
+        slug = css_framework.strip().lower().replace(" ", "-") or "custom"
+        preset = {
+            "name": css_framework,
+            "css_links": [],
+            "js_links": [],
+            "body_class": f"{slug}-scope",
+            "description": (
+                f"Custom framework '{css_framework}' requested. "
+                "Use generated theme tokens to derive component classes."
+            ),
+            "is_custom": True,
+        }
+    else:
+        preset.setdefault("is_custom", False)
+    preset["style_hints"] = style_hints
+    return preset
+
+
 class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtifact]):
     """Assemble a static site using Jinja2 templates."""
 
-    def __init__(self, css_framework: str = "bootstrap") -> None:
+    def __init__(self, css_framework: str = "bootstrap", *, style_hints: str = "") -> None:
         super().__init__(name="A13.Builder")
-        if css_framework not in _FRAMEWORK_PRESETS:
-            raise ValueError(
-                "Unsupported CSS framework '%s'. Choose from %s"
-                % (css_framework, ", ".join(sorted(_FRAMEWORK_PRESETS)))
-            )
         self._framework = css_framework
-        self._framework_meta = _FRAMEWORK_PRESETS[css_framework]
+        self._style_hints = style_hints
+        self._framework_meta = _create_framework_meta(css_framework, style_hints)
         self._env = Environment(
             loader=FileSystemLoader(str(_TEMPLATE_DIR)),
             autoescape=select_autoescape(["html", "xml"]),
@@ -151,6 +168,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
             css_variables=css_variables,
             framework=self._framework_meta,
             section_partials=_SECTION_PARTIALS,
+            style_hints=self._style_hints,
         )
         (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
@@ -167,6 +185,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
                 css_variables=css_variables,
                 framework=self._framework_meta,
                 section_partials=_SECTION_PARTIALS,
+                style_hints=self._style_hints,
             )
             (output_dir / filename).write_text(page_html, encoding="utf-8")
 
