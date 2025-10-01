@@ -14,14 +14,13 @@ from .base import Agent
 from ..http import get
 from ..models import CrawlResult, PageContent, ScopePlan
 
-_MAX_PAGES = 10
-
 
 class CrawlerAgent(Agent[ScopePlan, CrawlResult]):
     """Fetch pages within the provided scope."""
 
-    def __init__(self) -> None:
+    def __init__(self, max_pages: int = 10) -> None:
         super().__init__(name="A2.Crawler")
+        self._max_pages = max(1, max_pages)
 
     def _is_same_domain(self, base: str, url: str) -> bool:
         return urlparse(base).netloc == urlparse(url).netloc
@@ -31,8 +30,8 @@ class CrawlerAgent(Agent[ScopePlan, CrawlResult]):
         queue: Deque[str] = deque(plan.seed_urls)
         pages: List[PageContent] = []
 
-        self.logger.info("Starting crawl with up to %d pages", _MAX_PAGES)
-        while queue and len(pages) < _MAX_PAGES:
+        self.logger.info("Starting crawl with up to %d pages", self._max_pages)
+        while queue and len(pages) < self._max_pages:
             current_url = queue.popleft()
             if current_url in visited:
                 continue
@@ -40,7 +39,9 @@ class CrawlerAgent(Agent[ScopePlan, CrawlResult]):
             try:
                 response = get(current_url, headers={"User-Agent": "AgenticWebRenewal/0.1"})
             except requests.RequestException as exc:  # type: ignore[attr-defined]
-                self.logger.error("Failed to fetch %s: %s", current_url, exc)
+                self.logger.error(
+                    "Failed to fetch %s: %s", current_url, exc, exc_info=True
+                )
                 continue
             pages.append(
                 PageContent(
