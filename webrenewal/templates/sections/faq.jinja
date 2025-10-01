@@ -1,0 +1,37 @@
+{% set faq_data = block.data if block.data is mapping else {} %}
+{% set entries = faq_data.get('items', []) %}
+{% if entries is not iterable %}
+  {% set entries = [] %}
+{% endif %}
+{% if entries is mapping %}
+  {% set entries = entries.items() %}
+{% endif %}
+<section class="section section--faq">
+  <div class="section__inner">
+    <h2 class="section__title">{{ block.title or 'Frequently Asked Questions' }}</h2>
+    {% if entries %}
+    <dl class="faq-list">
+      {% for entry in entries %}
+      {% if entry is mapping %}
+      {% set question = entry.question %}
+      {% set answer = entry.answer %}
+      {% elif entry is sequence and entry|length == 2 %}
+      {% set question = entry[0] %}
+      {% set answer = entry[1] %}
+      {% else %}
+      {% set question = None %}
+      {% set answer = None %}
+      {% endif %}
+      {% if question and answer %}
+      <div class="faq-item">
+        <dt class="faq-item__question">{{ question }}</dt>
+        <dd class="faq-item__answer">{{ answer }}</dd>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </dl>
+    {% else %}
+    <p class="section__body">{{ block.body }}</p>
+    {% endif %}
+  </div>
+</section>
