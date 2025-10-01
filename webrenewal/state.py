@@ -36,6 +36,7 @@ def _json_safe(value: Any) -> Any:
     return str(value)
 
 
+
 @dataclass(slots=True)
 class EditRecord:
     """Representation of an edit stored in the database."""

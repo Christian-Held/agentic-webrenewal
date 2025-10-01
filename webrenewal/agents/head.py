@@ -1,9 +1,7 @@
 """Head agent for applying document-level patches."""
 
 from __future__ import annotations
-
 from typing import Any, Dict, List
-
 from .base import Agent
 from ..postedit.models import ChangeOperation, SiteState
 
