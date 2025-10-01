@@ -6,8 +6,8 @@ from typing import List
 
 from bs4 import BeautifulSoup
 
-from .base import Agent
-from ..models import CrawlResult, Issue, SEOReport
+from ..common import Agent
+from ...models import CrawlResult, Issue, SEOReport
 
 
 class SEOAgent(Agent[CrawlResult, SEOReport]):

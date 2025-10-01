@@ -166,3 +166,17 @@ Der Agent ergänzt A3 (Inhalte) um eine **technologische Landkarte**, die späte
 
 📄 **Fazit**:
 A4 liefert eine **technologische Fingerprint-Karte** der Ziel-Website. Er bildet die Grundlage für alle späteren Empfehlungen, Upgrades und Sicherheitsbewertungen. Durch seine modulare Pattern-Datenbank kann er unabhängig von der Sprache (Python/Java/Node) implementiert werden.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Regex-basierte Heuristiken identifizieren gängige Frameworks wie Bootstrap, jQuery und WordPress.
+- Speichert Evidenz-URLs zur Nachvollziehbarkeit.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Erweiterte Signaturen für moderne Frameworks und Build-Tool-Ketten.
+- Korrelation mit HTTP-Headern und Asset-Hashes für höhere Genauigkeit.
+

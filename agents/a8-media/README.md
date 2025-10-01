@@ -156,3 +156,17 @@ Er liefert präzise **MediaReports**, die in den Renewal Plan (A10) einfließen 
 
 📄 **Fazit**:
 A8 liefert den **Medienoptimierungs-Report**. Ohne ihn bleiben Performance- und Accessibility-Probleme unsichtbar. Er ist direkt anschlussfähig an A10 (Plan), A11 (Content-Rewrite, z. B. ALT-Texte generieren) und A13 (Builder für WebP/AVIF).
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Listet Bilder mit absoluter URL, Format, Dateigröße und Alt-Text auf.
+- Verwendet HEAD-Requests für Metadaten ohne Voll-Download.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Analyse weiterer Medien-Typen (Video, Audio, Downloads).
+- Caching/Retry-Strategien sowie Bildqualitätsmetriken ergänzen.
+

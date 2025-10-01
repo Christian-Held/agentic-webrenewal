@@ -138,3 +138,17 @@ Beispiel:
 📄 **Fazit**:
 A16 ist das **Gedächtnis** des Systems. Ohne ihn sind die Verbesserungen einmalig und nicht nachvollziehbar.
 Mit ihm entsteht eine **historische Datenbasis**, die für Angebote, Audits und zukünftige Optimierungen entscheidend ist.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Speichert Angebotsschnappschüsse in einer In-Memory-Map für spätere Abfragen.
+- Normalisiert Domains als Schlüssel.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Persistente Ablage (LibSQL, Redis) und Ablaufstrategien.
+- Abfragen nach Historie/Änderungsdiffs und Berechtigungen.
+
