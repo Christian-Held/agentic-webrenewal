@@ -1,37 +1,52 @@
 {% set faq_data = block.data if block.data is mapping else {} %}
 {% set entries = faq_data.get('items', []) %}
-{% if entries is not iterable %}
-  {% set entries = [] %}
-{% endif %}
 {% if entries is mapping %}
   {% set entries = entries.items() %}
 {% endif %}
-<section class="section section--faq">
-  <div class="section__inner">
-    <h2 class="section__title">{{ block.title or 'Frequently Asked Questions' }}</h2>
-    {% if entries %}
-    <dl class="faq-list">
-      {% for entry in entries %}
-      {% if entry is mapping %}
-      {% set question = entry.question %}
-      {% set answer = entry.answer %}
-      {% elif entry is sequence and entry|length == 2 %}
-      {% set question = entry[0] %}
-      {% set answer = entry[1] %}
-      {% else %}
-      {% set question = None %}
-      {% set answer = None %}
-      {% endif %}
-      {% if question and answer %}
-      <div class="faq-item">
-        <dt class="faq-item__question">{{ question }}</dt>
-        <dd class="faq-item__answer">{{ answer }}</dd>
+{% if entries is not iterable %}
+  {% set entries = [] %}
+{% endif %}
+<section class="section py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-10">
+        <div class="section-shell">
+          <h2 class="h3 mb-4">{{ block.title or 'Häufige Fragen' }}</h2>
+          {% if entries %}
+          <div class="accordion" id="faqAccordion-{{ block.title | default('faq') | replace(' ', '-') | lower }}">
+            {% for entry in entries %}
+            {% if entry is mapping %}
+            {% set question = entry.question %}
+            {% set answer = entry.answer %}
+            {% elif entry is sequence and entry|length == 2 %}
+            {% set question = entry[0] %}
+            {% set answer = entry[1] %}
+            {% else %}
+            {% set question = None %}
+            {% set answer = None %}
+            {% endif %}
+            {% if question and answer %}
+            {% set item_id = 'faq-' ~ loop.index %}
+            <div class="accordion-item">
+              <h3 class="accordion-header" id="heading-{{ item_id }}">
+                <button class="accordion-button {{ 'collapsed' if not loop.first }}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ item_id }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="collapse-{{ item_id }}">
+                  {{ question }}
+                </button>
+              </h3>
+              <div id="collapse-{{ item_id }}" class="accordion-collapse collapse {{ 'show' if loop.first }}" aria-labelledby="heading-{{ item_id }}" data-bs-parent="#faqAccordion-{{ block.title | default('faq') | replace(' ', '-') | lower }}">
+                <div class="accordion-body">
+                  {{ answer }}
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="mb-0">{{ block.body }}</p>
+          {% endif %}
+        </div>
       </div>
-      {% endif %}
-      {% endfor %}
-    </dl>
-    {% else %}
-    <p class="section__body">{{ block.body }}</p>
-    {% endif %}
+    </div>
   </div>
 </section>
