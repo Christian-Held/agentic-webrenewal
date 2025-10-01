@@ -17,6 +17,26 @@ def _iso_now() -> str:
     return datetime.utcnow().isoformat(timespec="seconds")
 
 
+def _json_safe(value: Any) -> Any:
+    """Coerce ``value`` into a form that :func:`json.dumps` can serialise."""
+
+    if isinstance(value, dict):
+        return {str(key): _json_safe(val) for key, val in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, Path):
+        return str(value)
+    if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
+        try:
+            return _json_safe(value.to_dict())
+        except Exception:
+            return str(value)
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
+
+
+
 @dataclass(slots=True)
 class EditRecord:
     """Representation of an edit stored in the database."""
@@ -162,6 +182,8 @@ class StateStore:
         entry_id = uuid.uuid4().hex
         diff_payload = dict(diff_stats)
         diff_payload.setdefault("change_set_hash", change_set.hash())
+        diff_payload = _json_safe(diff_payload)
+        llm_payload = _json_safe(llm_meta or {})
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO edits(id, scope, prompt, llm_meta_json, diff_stats_json, created_at)"
@@ -170,7 +192,7 @@ class StateStore:
                     entry_id,
                     scope,
                     prompt,
-                    json.dumps(llm_meta or {}, ensure_ascii=False),
+                    json.dumps(llm_payload, ensure_ascii=False),
                     json.dumps(diff_payload, ensure_ascii=False),
                     _iso_now(),
                 ),

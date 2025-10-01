@@ -191,7 +191,7 @@ class PostEditPipeline:
             )
 
         if head_ops:
-            results["head"] = self.head_agent.run((state, head_ops))
+            results["head"] = self.head_agent.apply_post_edit(state, head_ops)
 
         return results
 
