@@ -179,3 +179,10 @@ Wesentliche Eigenschaften:
 
 📄 **Fazit**:
 A2 ist ein ressourcenintensiver, aber hochkritischer Microservice. Ohne valide Crawl-Daten sind nachgelagerte Analysen (SEO, A11y, Security) wertlos. Die klare Trennung von **Fetch (leichtgewichtig)** und **Render (schwergewichtig)** ist essenziell, um Skalierung und Effizienz zu gewährleisten.
+
+## Testing
+
+* `pytest tests/unit/agents/test_crawler_agent.py -q`
+* Netzwerkzugriffe werden vollständig gemockt, inkl. Error-Handling und Domain-Filter.
+* HTML-Dummy-Seiten liegen unter `tests/fixtures/html/`.
+

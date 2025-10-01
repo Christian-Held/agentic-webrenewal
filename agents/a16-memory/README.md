@@ -138,3 +138,10 @@ Beispiel:
 📄 **Fazit**:
 A16 ist das **Gedächtnis** des Systems. Ohne ihn sind die Verbesserungen einmalig und nicht nachvollziehbar.
 Mit ihm entsteht eine **historische Datenbasis**, die für Angebote, Audits und zukünftige Optimierungen entscheidend ist.
+
+## Testing
+
+* `pytest tests/unit/agents/test_memory_agent.py -q`
+* Speicherung & Normalisierung der Domain werden über Fixtures geprüft.
+* Integrationstest erzeugt `memory.json` als Endzustand der Pipeline.
+

@@ -176,3 +176,23 @@ aus historischen Gründen dokumentiert. Für das neue PoC genügt der oben besch
 `renewal.py`-Aufruf; dieser Abschnitt wird in einer späteren Iteration bereinigt.
 
 
+
+## Testing
+
+1. `pip install -r requirements.txt`
+2. `pip install pytest pytest-cov`
+3. `pytest --cov=webrenewal tests/`
+
+Die Tests nutzen die Dummy-Daten unter `tests/fixtures/` (HTML-Seiten und JSON-Artefakte), um deterministische Ergebnisse zu
+ermöglichen. Die Coverage-Reports werden im Terminal sowie unter `htmlcov/index.html` abgelegt.
+
+### Edge-Cases & SOLID-Teststruktur
+
+* **Single Responsibility**: Jede Testdatei deckt genau ein Modul bzw. einen Agenten ab, wodurch Ursachenanalyse vereinfacht wird.
+* **Open/Closed & Liskov**: Agenten werden über austauschbare Stubs/Fakes getestet, sodass Erweiterungen ohne Testbrüche möglich
+  sind.
+* **Interface Segregation**: Fixtures in `tests/conftest.py` kapseln Dummy-Daten (HTML, JSON, LLM-Antworten), wodurch Tests nur die
+  benötigten Daten konsumieren.
+* **Dependency Inversion**: Externe Systeme (LLMs, HTTP) werden konsequent gemockt, um deterministische, offline lauffähige
+  Szenarien abzudecken – inkl. Timeouts und Fehlerpfade.
+

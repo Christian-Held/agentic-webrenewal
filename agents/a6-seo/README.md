@@ -176,3 +176,10 @@ Beispiel:
 
 📄 **Fazit**:
 A6 ist der **Suchmaschinen-Optimierer** im Agentensystem. Er macht die Website für Google & Co. sichtbar, sorgt für Meta-/Struktur-Vollständigkeit und liefert wertvolle Eingaben für Rewrites (A11) und Angebote (A15).
+
+## Testing
+
+* `pytest tests/unit/agents/test_seo_agent.py -q`
+* Tests prüfen fehlende Meta-Daten sowie erfolgreiche Happy-Paths aus den HTML-Dummies.
+* Integrationstest deckt die Übergabe an den Plan-Agenten ab.
+

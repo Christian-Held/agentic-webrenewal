@@ -166,3 +166,10 @@ Der Agent ergänzt A3 (Inhalte) um eine **technologische Landkarte**, die späte
 
 📄 **Fazit**:
 A4 liefert eine **technologische Fingerprint-Karte** der Ziel-Website. Er bildet die Grundlage für alle späteren Empfehlungen, Upgrades und Sicherheitsbewertungen. Durch seine modulare Pattern-Datenbank kann er unabhängig von der Sprache (Python/Java/Node) implementiert werden.
+
+## Testing
+
+* `pytest tests/unit/agents/test_tech_fingerprint_agent.py -q`
+* RegEx-Erkennung wird mit gezielten HTML-Snippets aus `tests/fixtures/html/` geprüft.
+* Edge-Cases ohne Treffer liefern leere Reports und halten Coverage stabil.
+

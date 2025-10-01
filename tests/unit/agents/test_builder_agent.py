@@ -1,0 +1,60 @@
+"""Tests for :class:`webrenewal.agents.builder.BuilderAgent`."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from webrenewal.agents.builder import BuilderAgent
+from webrenewal.models import ContentBlock, ContentBundle, NavModel, NavigationItem, ThemeTokens
+
+
+@pytest.fixture
+def builder_agent() -> BuilderAgent:
+    """Return a builder agent configured with the vanilla framework for predictability."""
+
+    return BuilderAgent(css_framework="vanilla")
+
+
+def test_builder_agent_renders_pages(
+    builder_agent: BuilderAgent,
+    sample_content_bundle: ContentBundle,
+    sample_theme_tokens: ThemeTokens,
+    sample_nav_model: NavModel,
+    sandbox_dir: Path,
+) -> None:
+    """Given a content bundle When builder runs Then static files are produced in the sandbox."""
+
+    artifact = builder_agent.run((sample_content_bundle, sample_theme_tokens, sample_nav_model))
+
+    assert (Path(artifact.output_dir) / "index.html").exists()
+    assert any(file.endswith(".html") for file in artifact.files)
+
+
+def test_builder_agent_generates_unique_slugs(builder_agent: BuilderAgent, sample_theme_tokens: ThemeTokens, sample_nav_model: NavModel) -> None:
+    """Given blocks with identical titles When rendered Then unique filenames are assigned."""
+
+    bundle = ContentBundle(
+        blocks=[
+            ContentBlock(title="Overview", body="One"),
+            ContentBlock(title="Overview", body="Two"),
+        ],
+        meta_title="Example",
+        meta_description="Desc",
+        fallback_used=False,
+    )
+
+    artifact = builder_agent.run((bundle, sample_theme_tokens, sample_nav_model))
+
+    filenames = [Path(path).name for path in artifact.files if path.endswith(".html")]
+    page_files = [name for name in filenames if name != "index.html"]
+    assert len(set(page_files)) == len(page_files)
+
+
+def test_builder_agent_rejects_unknown_framework() -> None:
+    """Given an invalid framework When constructing Then a ValueError is raised."""
+
+    with pytest.raises(ValueError):
+        BuilderAgent(css_framework="unknown")
+

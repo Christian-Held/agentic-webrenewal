@@ -150,3 +150,10 @@ Beispiel:
 📄 **Fazit**:
 A14 ist der **Vergleichs- und Vertrauensanker**. Er macht Fortschritte sichtbar, dokumentiert Unterschiede und bereitet die Basis für Angebots- und Verkaufsprozesse.
 Ohne A14 wäre das System eine Blackbox – mit A14 wird es für Kunden nachvollziehbar und überprüfbar.
+
+## Testing
+
+* `pytest tests/unit/agents/test_comparator_agent.py -q`
+* Prüft direkte Zuordnung, Fallbacks und fehlende Dateien anhand der Build-Dummy-Seiten.
+* Integrationstest validiert die realen Diff-Artefakte (`preview.json`).
+

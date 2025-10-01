@@ -20,3 +20,10 @@ dependencies = [
 
 [project.scripts]
 renewal = "renewal:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "asyncio: Tests, die eine asyncio-Eventloop benötigen",
+]

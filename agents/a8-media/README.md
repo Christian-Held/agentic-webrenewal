@@ -156,3 +156,10 @@ Er liefert präzise **MediaReports**, die in den Renewal Plan (A10) einfließen 
 
 📄 **Fazit**:
 A8 liefert den **Medienoptimierungs-Report**. Ohne ihn bleiben Performance- und Accessibility-Probleme unsichtbar. Er ist direkt anschlussfähig an A10 (Plan), A11 (Content-Rewrite, z. B. ALT-Texte generieren) und A13 (Builder für WebP/AVIF).
+
+## Testing
+
+* `pytest tests/unit/agents/test_media_agent.py -q`
+* HEAD-Requests werden komplett gemockt, um Timeouts und fehlende Header zu simulieren.
+* Bildquellen stammen aus den HTML-Fixtures unter `tests/fixtures/html/`.
+

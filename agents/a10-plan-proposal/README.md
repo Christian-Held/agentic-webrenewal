@@ -155,3 +155,10 @@ Beispielauszug:
 📄 **Fazit**:
 A10 ist der **Planungs- und Strategie-Agent**. Ohne ihn bleibt das System fragmentiert. Er verwandelt die Analyse-Outputs in einen **klar priorisierten Maßnahmenplan**, der sowohl Entwickler als auch Kunden verstehen.
 Mit Multi-LLM-Architektur + Validator entsteht hier ein robustes, fehlerresistentes Agentic-System.
+
+## Testing
+
+* `pytest tests/unit/agents/test_plan_agent.py -q`
+* Reports aus den Upstream-Agenten werden über Fixtures simuliert, um Maßnahmen und Aufwand zu validieren.
+* Kombination mit dem Integrationstest zeigt, wie der Plan in Angebot & Memory einfließt.
+

@@ -153,3 +153,10 @@ Beispiel:
 📄 **Fazit**:
 A15 ist der **Business-Connector**. Er übersetzt technische Verbesserungen in einen **greifbaren Mehrwert** mit Preis, Nutzen und Timeline.
 Ohne ihn bleibt der Prozess rein technisch – mit ihm wird er zu einem **verkaufsfähigen Produkt**.
+
+## Testing
+
+* `pytest tests/unit/agents/test_offer_agent.py -q`
+* Tests prüfen Mindestpreis-Logik und Summary-Aufbau mit dem Dummy-Plan aus `tests/conftest.py`.
+* Integrationstest stellt sicher, dass Angebot & Memory zusammenspielen.
+

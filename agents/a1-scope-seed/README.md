@@ -153,3 +153,10 @@ Das Ergebnis ist ein **ScopePlan**, ein formalisiertes JSON-Dokument, das die Ba
 📄 **Fazit**:
 A1 ist ein schlanker, aber kritischer Microservice. Er definiert die Spielwiese für alle weiteren Agenten. Ob in **Python (aiohttp, lxml)** oder **Java (Spring Boot, Jsoup)**, die Logik bleibt dieselbe: **URL normalisieren → robots/sitemap evaluieren → Include/Exclude setzen → ScopePlan.json persistieren**.
 
+
+## Testing
+
+* `pytest tests/unit/agents/test_scope_agent.py -q`
+* Fehlerpfade wie fehlgeschlagene `robots.txt`-Requests werden über Mocks abgedeckt.
+* Dummy-Daten stammen aus `tests/fixtures/`.
+
