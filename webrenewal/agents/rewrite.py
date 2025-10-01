@@ -387,7 +387,6 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
             ],
         }
 
-
         async with semaphore:
             with trace(
                 "rewrite.llm_request",
@@ -422,7 +421,6 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                     response = await client.responses.create(**request_kwargs)
                     span.note(mode="fallback_request")
 
-
         raw_output = self._extract_response_text(response)
         if not raw_output:
             raise ValueError("No textual output returned by LLM")
@@ -441,7 +439,6 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                 domain=domain,
                 section=index + 1,
                 sample=raw_output[:500],
-
             )
             raise
 
@@ -737,6 +734,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                 stripped = brace_match.group(0).strip()
         return stripped
 
+
     def _fallback_bundle(self, domain: str, content: ContentExtract) -> ContentBundle:
         """Provide a deterministic rewrite when the LLM is unavailable."""
 
@@ -745,9 +743,11 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
 
         blocks: List[ContentBlock] = []
         for index, section in enumerate(content.sections, start=1):
-            readability = (
-                f"{section.readability_score:.1f}" if section.readability_score is not None else "n/a"
-            )
+            score = section.readability_score
+            if score is None:
+                readability = "n/a"
+            else:
+                readability = f"{score:.1f}"
             refreshed = (
                 f"{fallback_notice} Original readability score: {readability}.\n\n{section.text}"
             )
