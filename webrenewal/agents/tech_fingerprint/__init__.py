@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from typing import Dict, List
 
-from .base import Agent
-from ..models import CrawlResult, TechFingerprint
+from ..common import Agent
+from ...models import CrawlResult, TechFingerprint
 
 
 class TechFingerprintAgent(Agent[CrawlResult, TechFingerprint]):
