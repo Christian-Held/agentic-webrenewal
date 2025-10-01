@@ -258,13 +258,88 @@ Alle Artefakte landen in `sandbox/`, inklusive Crawl-Daten, Analysen, Plan, Rewr
 Theming-Tokens, einer vollständigen Kopie der Originalseiten (`sandbox/original/`),
 dem mehrseitigen Build (`sandbox/newsite/`), Diff-Preview und Angebot.
 
+## Inkrementeller Post-Edit Workflow
+
+Der neue `PostEditPipeline`-Flow speichert den kompletten `SiteState` in einer SQLite-Datenbank
+(`sandbox/state.db`) und berechnet bei jedem Aufruf nur die wirklich nötigen Änderungen.
+Post-Edits lassen sich dadurch iterativ anwenden, ohne Crawl und Full-Build erneut durchlaufen
+zu müssen.
+
+### Neue CLI-Flags
+
+| Flag | Beschreibung |
+|------|--------------|
+| `--user-prompt "..."` | Freitext-Instruktionen für Planner & Agents (Design, SEO, Copy, CTA, Navigation …). |
+| `--apply-scope css,nav` | Kommagetrennte Scopes (`all`, `css`, `seo`, `images`, `logo`, `content`, `nav`, `head`). |
+| `--no-recrawl` | Überspringt A1–A3, wenn bereits Crawl-Artefakte vorliegen. |
+
+Beispiel: nur CSS & Navigation aktualisieren
+
+```bash
+python renewal.py https://www.physioheld.ch \
+  --no-recrawl \
+  --apply-scope css,nav \
+  --user-prompt "Modern blue/white palette, rounded buttons, soft shadow, navigation top-right" \
+  --css-framework bootstrap
+```
+
+### ChangeSet JSON
+
+Der DeltaPlanner liefert deterministische Operationen:
+
+```json
+{
+  "targets": ["css", "nav"],
+  "operations": [
+    {"type": "css.tokens.update", "payload": {"path": "theme.tokens", "tokens": {"palette": {"primary": "blue"}}}},
+    {"type": "nav.layout.update", "payload": {"location": "top-right", "dropdown": "hover", "default": "closed"}}
+  ]
+}
+```
+
+### SiteState Schema (persistiert in SQLite)
+
+```json
+{
+  "nav": {"items": [...], "layout": {...}, "html": "..."},
+  "head": {"title": "...", "meta": {...}, "links": [...]},
+  "pages": [
+    {
+      "path": "/",
+      "blocks": [{"id": "hero", "text": "...", "meta": {...}}],
+      "seo": {...},
+      "content_hash": "..."
+    }
+  ],
+  "theme": {"tokens": {...}},
+  "css_bundle": {"raw": "...", "tokens": {...}, "framework": "bootstrap"},
+  "assets": {"images": [...], "logo": {...}},
+  "seo": {"meta": {...}, "ld_json": {...}},
+  "build": {"latest_dist": "sandbox/newsite-20240618-153000", "history": [...]}
+}
+```
+
+### Wiederholte Post-Edits
+
+- `--no-recrawl` nutzt die gespeicherte `SiteState` statt neu zu crawlen.
+- Jede Operation wird gehasht; identische ChangeSets werden übersprungen und verweisen
+  lediglich auf die letzte Preview.
+- Der Builder erzeugt nur geänderte Dateien, unveränderte HTMLs werden aus dem letzten Build kopiert.
+
+### Preview & lokale Links
+
+- Jede Ausführung legt einen HTML-Diff unter `sandbox/preview/<id>/index.html` an.
+- Der CLI-Output nennt den Pfad (`Preview ready: sandbox/preview/abcd1234/index.html`).
+- Bei Bedarf kann derselbe Pfad über einen lokalen Static-Server ausgespielt werden
+  (z. B. `http://127.0.0.1:8000/preview/abcd1234/`).
+
 Zusätzlich wird die komplette CLI-Konfiguration als `sandbox/config.json` abgelegt, so dass spätere API-Calls die gleichen Settings übernehmen können.
 
 **Erweiterungstipps:**
 
 * Neue Frameworks lassen sich über `--css-framework` direkt anfragen. Soll ein Preset ergänzt werden, kann in `BuilderAgent` eine passende CDN-Konfiguration hinterlegt werden.
 * Stilhinweise funktionieren am besten als kurze Komma-Liste: Farben („modern blue/white“), Formen („rounded buttons“), Effekte („shadow, glassmorphism“) oder Typografie („serif, elegant“).
-* Eigene Renewal-Modes können durch eine Erweiterung des `RenewalConfig`-Schemas sowie der Modusschalter in `WebRenewalPipeline` ergänzt werden.
+* Eigene Renewal-Modes lassen sich über zusätzliche Scopes im `RenewalConfig` und passende Planner-Regeln innerhalb der `PostEditPipeline` erweitern.
 
 ### MCP Server für LLMs
 
