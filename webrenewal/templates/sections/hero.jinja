@@ -1,17 +1,33 @@
 {% set hero = block.data if block.data is mapping else {} %}
-<section class="section section--hero">
-  <div class="section__inner">
-    {% if hero.kicker %}
-    <p class="hero__kicker">{{ hero.kicker }}</p>
-    {% endif %}
-    <h2 class="hero__title">{{ block.title or 'Welcome' }}</h2>
-    <p class="hero__body">{{ block.body }}</p>
-    {% set cta_label = hero.cta_label or hero.cta_text %}
-    {% set cta_href = hero.cta_href or hero.cta_url %}
-    {% if cta_label and cta_href %}
-    <p class="hero__actions">
-      <a class="button button--primary" href="{{ cta_href }}">{{ cta_label }}</a>
-    </p>
-    {% endif %}
+<section class="section section-hero py-5">
+  <div class="container position-relative">
+    <div class="row justify-content-between align-items-center g-5">
+      <div class="col-12 col-lg-7">
+        {% if hero.kicker %}
+        <span class="hero-badge d-inline-flex align-items-center gap-2 mb-3">
+          <span class="badge bg-light text-dark text-uppercase">{{ hero.kicker }}</span>
+        </span>
+        {% endif %}
+        <h1 class="hero-title mb-3">{{ block.title or 'Willkommen' }}</h1>
+        <p class="hero-text lead mb-4">{{ block.body }}</p>
+        {% set cta_label = hero.cta_label or hero.cta_text %}
+        {% set cta_href = hero.cta_href or hero.cta_url %}
+        {% set secondary_label = hero.secondary_cta_label or hero.secondary_cta_text %}
+        {% set secondary_href = hero.secondary_cta_href or hero.secondary_cta_url %}
+        <div class="d-flex flex-wrap gap-3">
+          {% if cta_label and cta_href %}
+          <a class="btn btn-primary btn-lg" href="{{ cta_href }}">{{ cta_label }}</a>
+          {% endif %}
+          {% if secondary_label and secondary_href %}
+          <a class="btn btn-outline-light btn-lg" href="{{ secondary_href }}">{{ secondary_label }}</a>
+          {% endif %}
+        </div>
+      </div>
+      {% if hero.media and hero.media.url %}
+      <div class="col-12 col-lg-5 text-center text-lg-end">
+        <img class="img-fluid rounded-4 shadow-lg" src="{{ hero.media.url }}" alt="{{ hero.media.alt or block.title }}" loading="lazy" />
+      </div>
+      {% endif %}
+    </div>
   </div>
 </section>

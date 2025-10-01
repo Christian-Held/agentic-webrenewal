@@ -1,0 +1,284 @@
+{% set meta = page_meta or {} %}
+{% set lang = meta.lang or 'en' %}
+{% set title = meta.title or 'Renewed Website' %}
+{% set description = meta.description %}
+{% set canonical = meta.canonical %}
+{% set robots = meta.robots %}
+{% set og = meta.open_graph if meta.open_graph is mapping else {} %}
+{% set twitter = meta.twitter if meta.twitter is mapping else {} %}
+{% set extra_meta = meta.extra_meta if meta.extra_meta is iterable else [] %}
+{% set extra_links = meta.css_links if meta.css_links is iterable else [] %}
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="x-ua-compatible" content="ie=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title }}</title>
+  {% if description %}
+  <meta name="description" content="{{ description }}" />
+  {% endif %}
+  {% if canonical %}
+  <link rel="canonical" href="{{ canonical }}" />
+  {% endif %}
+  {% if robots %}
+  <meta name="robots" content="{{ robots }}" />
+  {% endif %}
+  {% if og %}
+    {% for key, value in og.items() if value %}
+  <meta property="og:{{ key }}" content="{{ value }}" />
+    {% endfor %}
+  {% endif %}
+  {% if twitter %}
+    {% for key, value in twitter.items() if value %}
+  <meta name="twitter:{{ key }}" content="{{ value }}" />
+    {% endfor %}
+  {% endif %}
+  {% for meta_tag in extra_meta %}
+    {% if meta_tag.name and meta_tag.content %}
+  <meta name="{{ meta_tag.name }}" content="{{ meta_tag.content }}" />
+    {% endif %}
+  {% endfor %}
+  {% for href in framework.css_links %}
+  <link rel="stylesheet" href="{{ href }}" />
+  {% endfor %}
+  {% for href in extra_links %}
+  <link rel="stylesheet" href="{{ href }}" />
+  {% endfor %}
+  <style>
+    :root {
+    {% for name, value in css_variables.items() %}
+      {{ name }}: {{ value }};
+    {% endfor %}
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-body-family, 'Inter', sans-serif);
+      font-size: var(--font-base-size, 1rem);
+      line-height: var(--font-line-height, 1.6);
+      background-color: var(--color-surface, #f8f9fa);
+      color: var(--color-text, #1f2933);
+    }
+
+    a {
+      color: var(--color-primary, #0d6efd);
+    }
+
+    a:hover,
+    a:focus {
+      color: var(--color-accent, #6610f2);
+    }
+
+    .skip-link {
+      position: absolute;
+      left: 1rem;
+      top: 0.5rem;
+      z-index: 1050;
+      padding: 0.5rem 1rem;
+      background-color: var(--color-primary, #0d6efd);
+      color: var(--color-on-primary, #ffffff);
+      border-radius: 999px;
+      transform: translateY(-120%);
+      transition: transform 0.2s ease;
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+      outline: none;
+    }
+
+    .site-topbar {
+      background-color: var(--slot-nav-background, var(--color-primary, #0d6efd));
+      color: var(--slot-nav-text, #ffffff);
+    }
+
+    .site-topbar [data-bs-theme="dark"] .navbar-nav .nav-link,
+    .site-topbar .navbar-nav .nav-link {
+      color: var(--slot-nav-text, #ffffff);
+      font-weight: 500;
+    }
+
+    .site-topbar .navbar-nav .nav-link:hover,
+    .site-topbar .navbar-nav .nav-link:focus {
+      color: var(--slot-nav-hover, var(--color-accent, #ffc107));
+    }
+
+    .navbar-brand {
+      font-family: var(--font-heading-family, 'Poppins', sans-serif);
+      font-weight: var(--font-weight-heading, 600);
+      color: var(--slot-nav-text, #ffffff);
+    }
+
+    .navbar-brand:focus,
+    .navbar-brand:hover {
+      color: var(--slot-nav-hover, var(--color-accent, #ffc107));
+    }
+
+    .dropdown-menu {
+      border-radius: var(--radius-md, 0.75rem);
+      border: 1px solid var(--color-border, rgba(15, 23, 42, 0.08));
+      box-shadow: var(--shadow-raised, 0 12px 32px rgba(15, 23, 42, 0.18));
+    }
+
+    .dropdown-item:focus,
+    .dropdown-item:hover {
+      background-color: var(--color-primary, #0d6efd);
+      color: var(--color-on-primary, #ffffff);
+    }
+
+    .dropdown-submenu {
+      position: relative;
+    }
+
+    .dropdown-submenu > .dropdown-menu {
+      top: 0;
+      left: 100%;
+      margin-left: 0.25rem;
+      margin-right: 0.25rem;
+    }
+
+    .dropdown-submenu > a::after {
+      content: '\25B8';
+      float: right;
+      margin-left: 0.5rem;
+      font-size: 0.7rem;
+      opacity: 0.7;
+    }
+
+    main {
+      background: transparent;
+    }
+
+    .section-shell {
+      background-color: var(--color-surface-alt, #ffffff);
+      border-radius: var(--radius-lg, 1.25rem);
+      border: 1px solid var(--color-border, rgba(15, 23, 42, 0.08));
+      box-shadow: var(--shadow-flat, 0 14px 32px rgba(15, 23, 42, 0.08));
+      padding: clamp(var(--space-lg, 2rem), 3vw, var(--space-xl, 3.5rem));
+    }
+
+    .section__body {
+      font-size: 1.05rem;
+      color: inherit;
+    }
+
+    .section__body p {
+      margin-bottom: 1rem;
+    }
+
+    .section__body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-shell h2,
+    .section-shell h3,
+    .section-shell h4 {
+      font-family: var(--font-heading-family, 'Poppins', sans-serif);
+      font-weight: var(--font-weight-heading, 600);
+    }
+
+    .section-hero {
+      background: var(--slot-hero-background, var(--color-primary, #0d6efd));
+      color: var(--slot-hero-text, #ffffff);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .section-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.2), transparent 55%),
+                  radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.18), transparent 50%);
+      pointer-events: none;
+    }
+
+    .section-hero .hero-badge {
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .section-hero .hero-title {
+      font-size: clamp(2.25rem, 4vw, 3.25rem);
+      font-weight: 700;
+    }
+
+    .section-hero .hero-text {
+      font-size: 1.1rem;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .btn-primary {
+      background-color: var(--color-primary, #0d6efd);
+      border-color: var(--color-primary, #0d6efd);
+    }
+
+    .btn-primary:hover,
+    .btn-primary:focus {
+      background-color: var(--color-accent, #6610f2);
+      border-color: var(--color-accent, #6610f2);
+    }
+
+    .btn-outline-primary {
+      color: var(--color-primary, #0d6efd);
+      border-color: var(--color-primary, #0d6efd);
+    }
+
+    .btn-outline-primary:hover,
+    .btn-outline-primary:focus {
+      background-color: var(--color-primary, #0d6efd);
+      color: var(--color-on-primary, #ffffff);
+    }
+
+    .faq-item + .faq-item,
+    .contact-item + .contact-item {
+      margin-top: 1.25rem;
+    }
+
+    .contact-list,
+    .faq-list {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    .site-footer {
+      background-color: var(--slot-footer-background, #0b172a);
+      color: var(--slot-footer-text, #f8f9fa);
+    }
+
+    .site-footer address {
+      font-style: normal;
+    }
+
+    .site-footer a {
+      color: inherit;
+    }
+
+    .site-footer a:hover,
+    .site-footer a:focus {
+      color: var(--color-accent, #ffc107);
+    }
+
+    .generated-pages .card {
+      border-radius: var(--radius-lg, 1.25rem);
+      border: 1px solid var(--color-border, rgba(15, 23, 42, 0.08));
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .generated-pages .card:hover,
+    .generated-pages .card:focus-within {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-raised, 0 18px 36px rgba(15, 23, 42, 0.12));
+    }
+
+    @media (max-width: 991.98px) {
+      .navbar-text-subtitle {
+        order: 3;
+        padding-top: 0.5rem;
+      }
+    }
+  </style>
+</head>

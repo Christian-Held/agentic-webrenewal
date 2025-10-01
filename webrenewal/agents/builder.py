@@ -67,6 +67,7 @@ _FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
     "vanilla": {
         "name": "vanilla",
         "css_links": [],
+        "js_links": [],
         "body_class": "vanilla-scope",
         "description": "Built-in modern layout with custom CSS variables.",
     },
@@ -74,6 +75,9 @@ _FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
         "name": "bootstrap",
         "css_links": [
             "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css",
+        ],
+        "js_links": [
+            "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js",
         ],
         "body_class": "bootstrap-scope",
         "description": "Bootstrap 5 utility classes available via CDN.",
@@ -83,40 +87,7 @@ _FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
         "css_links": [
             "https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css",
         ],
-        "body_class": "tailwind-scope",
-        "description": "Tailwind utility classes for rapid prototyping.",
-    },
-}
-
-
-_SECTION_PARTIALS: Mapping[str, str] = {
-    "hero": "sections/hero.jinja",
-    "faq": "sections/faq.jinja",
-    "contact": "sections/contact.jinja",
-    "text": "sections/text.jinja",
-}
-
-
-_FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
-    "vanilla": {
-        "name": "vanilla",
-        "css_links": [],
-        "body_class": "vanilla-scope",
-        "description": "Built-in modern layout with custom CSS variables.",
-    },
-    "bootstrap": {
-        "name": "bootstrap",
-        "css_links": [
-            "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css",
-        ],
-        "body_class": "bootstrap-scope",
-        "description": "Bootstrap 5 utility classes available via CDN.",
-    },
-    "tailwind": {
-        "name": "tailwind",
-        "css_links": [
-            "https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css",
-        ],
+        "js_links": [],
         "body_class": "tailwind-scope",
         "description": "Tailwind utility classes for rapid prototyping.",
     },
@@ -132,7 +103,7 @@ def _build_css_variables(theme: ThemeTokens) -> Dict[str, str]:
 class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtifact]):
     """Assemble a static site using Jinja2 templates."""
 
-    def __init__(self, css_framework: str = "vanilla") -> None:
+    def __init__(self, css_framework: str = "bootstrap") -> None:
         super().__init__(name="A13.Builder")
         if css_framework not in _FRAMEWORK_PRESETS:
             raise ValueError(
@@ -191,6 +162,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
                 navigation=augmented_navigation,
                 home_href="index.html",
                 meta_title=(block.title or content.meta_title or "Renewed Page"),
+                meta_description=(content.meta_description or block.body or ""),
                 fallback_used=content.fallback_used,
                 css_variables=css_variables,
                 framework=self._framework_meta,
