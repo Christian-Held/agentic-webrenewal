@@ -157,3 +157,17 @@ A3 arbeitet als „Content Extractor“ zwischen Rohdaten und semantischer Analy
 
 📄 **Fazit**:
 A3 wandelt die Roh-HTMLs in **strukturierte Content-Daten** um. Ohne A3 wäre keine fundierte SEO-, Accessibility- oder Content-Analyse möglich. Technologie-agnostisch lässt sich der Agent sowohl mit **Python (trafilatura, bs4)** als auch mit **Java (Jsoup, Boilerpipe)** realisieren.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Extrahiert Seitentexte via Trafilatura/BeautifulSoup und berechnet Flesch-Readability.
+- Ermittelt optional die Seitensprache aus dem HTML-Lang-Attribut.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Abschnitts- und Heading-Erkennung für strukturierte Inhalte.
+- Mehrsprachige Normalisierung sowie Domain-spezifische Tokenisierung.
+
