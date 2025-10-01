@@ -56,6 +56,38 @@ def _merge_navigation(nav: NavModel, blocks: Iterable[tuple[ContentBlock, str]])
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 
+_SECTION_PARTIALS: Mapping[str, str] = {
+    "hero": "sections/hero.jinja",
+    "faq": "sections/faq.jinja",
+    "contact": "sections/contact.jinja",
+    "text": "sections/text.jinja",
+}
+
+_FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
+    "vanilla": {
+        "name": "vanilla",
+        "css_links": [],
+        "body_class": "vanilla-scope",
+        "description": "Built-in modern layout with custom CSS variables.",
+    },
+    "bootstrap": {
+        "name": "bootstrap",
+        "css_links": [
+            "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css",
+        ],
+        "body_class": "bootstrap-scope",
+        "description": "Bootstrap 5 utility classes available via CDN.",
+    },
+    "tailwind": {
+        "name": "tailwind",
+        "css_links": [
+            "https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css",
+        ],
+        "body_class": "tailwind-scope",
+        "description": "Tailwind utility classes for rapid prototyping.",
+    },
+}
+
 
 _SECTION_PARTIALS: Mapping[str, str] = {
     "hero": "sections/hero.jinja",

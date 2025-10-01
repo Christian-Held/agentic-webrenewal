@@ -137,11 +137,14 @@
         border-radius: var(--radius-lg);
         border: 1px solid var(--color-border);
         box-shadow: var(--shadow-raised);
+        display: grid;
+        gap: var(--space-sm);
       }
 
       .section--hero {
         background: color-mix(in srgb, var(--slot-hero-background) 88%, transparent);
         color: var(--slot-hero-text);
+
       }
 
       .section__inner {
@@ -149,6 +152,7 @@
         display: grid;
         gap: var(--space-md);
       }
+
 
       .section__title {
         margin: 0;
@@ -175,6 +179,7 @@
         font-family: var(--font-heading-family);
         font-size: calc(var(--font-base-size) * var(--font-scale) * 1.7);
       }
+
 
       .hero__body {
         margin: 0;
@@ -288,6 +293,7 @@
         margin: 0 auto;
       }
 
+
       .site-footer p {
         margin: 0;
         font-size: 0.9rem;
@@ -302,6 +308,7 @@
           flex-wrap: wrap;
           justify-content: center;
         }
+      }
 
         main {
           padding: var(--space-lg) var(--space-sm) var(--space-xl);
