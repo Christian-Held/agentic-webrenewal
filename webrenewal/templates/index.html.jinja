@@ -3,8 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    {% if content.meta_title %}<title>{{ content.meta_title }}</title>{% endif %}
-    {% if content.meta_description %}<meta name="description" content="{{ content.meta_description }}" />{% endif %}
+    {% if content.meta_title %}
+    <title>{{ content.meta_title }}</title>
+    {% else %}
+    <title>Renewed Website</title>
+    {% endif %}
+    {% if content.meta_description %}
+    <meta name="description" content="{{ content.meta_description }}" />
+    {% endif %}
+    {% for href in framework.css_links %}
+    <link rel="stylesheet" href="{{ href }}" />
+    {% endfor %}
     <style>
       :root {
       {% for name, value in css_variables.items() %}
@@ -17,101 +26,215 @@
         font-size: var(--font-base-size);
         line-height: var(--font-line-height);
         margin: 0;
-        background: var(--color-surface);
+        min-height: 100vh;
+        background: linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--color-surface-alt) 90%, transparent),
+            var(--color-surface)
+          )
+          fixed;
         color: var(--color-text);
       }
 
-      header {
-        background: var(--slot-hero-background);
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background: color-mix(in srgb, var(--slot-hero-background) 92%, rgba(255, 255, 255, 0.08));
         color: var(--slot-hero-text);
-        padding: var(--space-xl) var(--space-md);
-        text-align: center;
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid color-mix(in srgb, var(--slot-hero-background) 70%, transparent);
         box-shadow: var(--shadow-flat);
       }
 
-      header h1 {
-        margin: 0 0 var(--space-sm);
-        font-family: var(--font-heading-family);
-        font-weight: var(--font-weight-heading);
-        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.5);
-      }
-
-      header p {
+      .site-header__inner {
+        max-width: min(100%, calc(var(--breakpoint-xl) + var(--space-xl)));
         margin: 0 auto;
-        max-width: 65ch;
-        opacity: 0.85;
+        padding: var(--space-lg) var(--space-md);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-md);
       }
 
-      nav {
-        margin-top: var(--space-lg);
+      .site-title {
+        margin: 0;
+        font-family: var(--font-heading-family);
+        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.6);
+        font-weight: var(--font-weight-heading);
+      }
+
+      .site-subtitle {
+        margin: 0;
+        max-width: 70ch;
+        color: color-mix(in srgb, var(--slot-hero-text) 80%, #000000 10%);
+      }
+
+      .site-nav {
         display: flex;
         justify-content: center;
       }
 
-      nav ul {
+      .site-nav__list {
         list-style: none;
         display: flex;
-        gap: var(--space-md);
-        justify-content: center;
-        padding: var(--space-xs) var(--space-sm);
+        align-items: center;
+        gap: var(--space-sm);
         margin: 0;
-        background: var(--slot-nav-background);
+        padding: var(--space-xs) var(--space-sm);
+        background: color-mix(in srgb, var(--slot-nav-background) 90%, transparent);
         border-radius: var(--radius-pill);
         box-shadow: var(--shadow-flat);
       }
 
-      nav a {
+      .site-nav__item--placeholder {
+        opacity: 0.65;
+        font-style: italic;
+      }
+
+      .site-nav__item--has-children {
+        position: relative;
+      }
+
+      .site-nav__sublist {
+        list-style: none;
+        margin: var(--space-xs) 0 0;
+        padding: var(--space-xs) 0 0;
+        border-left: 1px solid color-mix(in srgb, var(--slot-nav-background) 65%, transparent);
+        display: grid;
+        gap: var(--space-xs);
+      }
+
+      .site-nav__sublist .site-nav__link {
+        font-size: 0.9em;
+      }
+
+      .site-nav__link {
         color: var(--slot-nav-text);
         text-decoration: none;
         font-weight: 600;
         padding: var(--space-xs) var(--space-sm);
         border-radius: var(--radius-pill);
-        transition: color 0.2s ease, background 0.2s ease;
+        transition: all 0.2s ease;
       }
 
-      nav a:hover,
-      nav a:focus-visible {
+      .site-nav__link:hover,
+      .site-nav__link:focus-visible {
         color: var(--slot-nav-hover);
-        background: rgba(255, 255, 255, 0.08);
+        background: color-mix(in srgb, var(--slot-nav-background) 70%, transparent);
         outline: none;
       }
 
       main {
-        max-width: min(100%, var(--breakpoint-xl));
+        max-width: min(100%, calc(var(--breakpoint-xl) + var(--space-xl)));
         margin: 0 auto;
-        padding: var(--space-xl) var(--space-md);
+        padding: calc(var(--space-xl) + var(--space-lg)) var(--space-md) var(--space-xl);
         display: grid;
-        gap: var(--space-lg);
+        gap: var(--space-xl);
       }
 
-      section {
-        background: var(--color-surface-alt);
+      .section {
+        background: color-mix(in srgb, var(--color-surface-alt) 96%, transparent);
         border-radius: var(--radius-lg);
-        padding: var(--space-lg);
         border: 1px solid var(--color-border);
         box-shadow: var(--shadow-raised);
       }
 
-      section.fallback-block {
-        border: 2px dashed var(--color-accent);
+      .section--hero {
+        background: color-mix(in srgb, var(--slot-hero-background) 88%, transparent);
+        color: var(--slot-hero-text);
       }
 
-      h2 {
-        margin: 0 0 var(--space-sm);
+      .section__inner {
+        padding: clamp(var(--space-md), 2.5vw, var(--space-xl));
+        display: grid;
+        gap: var(--space-md);
+      }
+
+      .section__title {
+        margin: 0;
         font-family: var(--font-heading-family);
-        font-weight: var(--font-weight-heading);
+        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.2);
       }
 
-      section p {
+      .section__body {
+        font-size: 1rem;
+        line-height: var(--font-line-height);
+        white-space: pre-line;
+      }
+
+      .hero__kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.8rem;
+        margin: 0;
+        opacity: 0.85;
+      }
+
+      .hero__title {
+        margin: 0;
+        font-family: var(--font-heading-family);
+        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.7);
+      }
+
+      .hero__body {
         margin: 0;
         white-space: pre-line;
       }
 
-      .fallback-banner {
-        border-radius: var(--radius-md);
-        padding: var(--space-md);
-        border-left: 4px solid var(--color-accent);
-        background: var(--color-surface-alt);
+      .button {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-xs);
+        text-decoration: none;
+        font-weight: 600;
+        padding: var(--space-sm) var(--space-md);
+        border-radius: var(--radius-pill);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .button--primary {
+        background: var(--color-primary);
+        color: var(--color-on-primary, #ffffff);
+      }
+
+      .button--secondary {
+        background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+        color: var(--color-primary);
+        border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+      }
+
+      .button:hover,
+      .button:focus-visible {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-raised);
+      }
+
+      .faq-list,
+      .contact-list {
+        display: grid;
+        gap: var(--space-md);
+        margin: 0;
+        padding: 0;
+      }
+
+      .faq-item__question,
+      .contact-item__label {
+        font-weight: 700;
+        margin: 0 0 var(--space-xs);
+      }
+
+      .faq-item__answer,
+      .contact-item__value {
+        margin: 0;
+        white-space: pre-line;
+      }
+
+      .contact-details__row {
+        margin: 0;
+      }
+
+      .section--links {
+        background: color-mix(in srgb, var(--color-surface-alt) 98%, transparent);
       }
 
       .generated-pages {
@@ -124,74 +247,110 @@
 
       .generated-pages a {
         color: var(--color-primary);
-        text-decoration: none;
         font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-xs);
       }
 
-      footer {
-        text-align: center;
-        padding: var(--space-lg) var(--space-md);
-        background: var(--slot-footer-background);
+      .generated-pages a::after {
+        content: "→";
+        font-size: 0.875em;
+        opacity: 0.7;
+        transition: transform 0.2s ease;
+      }
+
+      .generated-pages a:hover::after,
+      .generated-pages a:focus-visible::after {
+        transform: translateX(4px);
+      }
+
+      .fallback-banner {
+        border-radius: var(--radius-md);
+        padding: clamp(var(--space-md), 2vw, var(--space-lg));
+        border-left: 4px solid var(--color-accent);
+        background: color-mix(in srgb, var(--color-surface-alt) 92%, transparent);
+        color: var(--color-text);
+        box-shadow: var(--shadow-flat);
+      }
+
+      .site-footer {
+        margin-top: auto;
+        background: color-mix(in srgb, var(--slot-footer-background) 95%, transparent);
         color: var(--slot-footer-text);
-        margin-top: var(--space-xl);
+        padding: var(--space-xl) var(--space-md);
+        text-align: center;
       }
 
-      footer p {
+      .site-footer__inner {
+        max-width: min(100%, calc(var(--breakpoint-xl) + var(--space-xl)));
+        margin: 0 auto;
+      }
+
+      .site-footer p {
         margin: 0;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
       }
 
       @media (max-width: var(--breakpoint-md)) {
-        nav ul {
-          flex-wrap: wrap;
+        .site-header__inner {
+          padding: var(--space-lg) var(--space-sm);
         }
 
-        header {
-          padding: var(--space-lg) var(--space-sm);
+        .site-nav__list {
+          flex-wrap: wrap;
+          justify-content: center;
         }
 
         main {
-          padding: var(--space-lg) var(--space-sm);
+          padding: var(--space-lg) var(--space-sm) var(--space-xl);
+        }
+
+        .section__inner {
+          padding: clamp(var(--space-md), 4vw, var(--space-lg));
         }
       }
     </style>
   </head>
-  <body>
-    <header>
-      <h1>{{ content.meta_title or "Renewed Website" }}</h1>
-      <p>{{ content.meta_description }}</p>
-      <nav>
-        <ul>
-          <li><a href="index.html">Start</a></li>
-          {% for item in navigation %}
-          <li><a href="{{ item.href }}">{{ item.label }}</a></li>
-          {% endfor %}
-        </ul>
-      </nav>
-    </header>
+  <body class="{{ framework.body_class }}">
+    {% set header_title = content.meta_title or 'Renewed Website' %}
+    {% set header_subtitle = None %}
+    {% set hero_block = (content.blocks | selectattr('type', 'equalto', 'hero') | list | first) %}
+    {% if hero_block %}
+      {% if hero_block.title %}
+        {% set header_title = hero_block.title %}
+      {% endif %}
+      {% if hero_block.data is mapping %}
+        {% set header_subtitle = hero_block.data.get('tagline') or hero_block.data.get('subtitle') %}
+      {% endif %}
+    {% endif %}
+    {% with header_title=header_title, header_subtitle=header_subtitle, home_href='index.html' %}
+      {% include "_header.jinja" %}
+    {% endwith %}
     <main>
       {% if content.fallback_used %}
       <div class="fallback-banner">
-        Automatisches LLM-Upgrade war nicht möglich. Bitte Inhalte prüfen und nach einer erfolgreichen OpenAI-Ausführung aktualisieren.
+        Automatischer LLM-Text fehlt für diese Seite. Bitte Inhalte manuell nachbearbeiten.
       </div>
       {% endif %}
       {% for block in content.blocks %}
-      <section class="{{ 'fallback-block' if content.fallback_used else '' }}">
-        <h2>{{ block.title }}</h2>
-        <p>{{ block.body }}</p>
-      </section>
+        {% set partial = section_partials.get(block.type, section_partials['text']) %}
+        {% include partial with context %}
       {% endfor %}
-      <section>
-        <h2>Weitere Seiten</h2>
-        <ul class="generated-pages">
-          {% for page in generated_pages %}
-          <li><a href="{{ page.href }}">{{ page.title }}</a></li>
-          {% endfor %}
-        </ul>
+      {% if generated_pages %}
+      <section class="section section--links">
+        <div class="section__inner">
+          <h2 class="section__title">Weitere Seiten</h2>
+          <ul class="generated-pages">
+            {% for page in generated_pages %}
+            <li><a href="{{ page.href }}">{{ page.title }}</a></li>
+            {% endfor %}
+          </ul>
+        </div>
       </section>
+      {% endif %}
     </main>
-    <footer>
-      <p>Generated by Agentic WebRenewal</p>
-    </footer>
+    {% include "_footer.jinja" %}
   </body>
 </html>

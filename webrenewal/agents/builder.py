@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Iterable, List, Set
+from typing import Dict, Iterable, List, Mapping, Set
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .base import Agent
-from ..models import BuildArtifact, ContentBlock, ContentBundle, NavModel, NavigationItem, ThemeTokens
+from ..models import (
+    BuildArtifact,
+    ContentBlock,
+    ContentBundle,
+    NavModel,
+    NavigationItem,
+    ThemeTokens,
+)
 from ..storage import SANDBOX_DIR, list_files
 
 
@@ -50,6 +57,40 @@ def _merge_navigation(nav: NavModel, blocks: Iterable[tuple[ContentBlock, str]])
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 
 
+_SECTION_PARTIALS: Mapping[str, str] = {
+    "hero": "sections/hero.jinja",
+    "faq": "sections/faq.jinja",
+    "contact": "sections/contact.jinja",
+    "text": "sections/text.jinja",
+}
+
+
+_FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
+    "vanilla": {
+        "name": "vanilla",
+        "css_links": [],
+        "body_class": "vanilla-scope",
+        "description": "Built-in modern layout with custom CSS variables.",
+    },
+    "bootstrap": {
+        "name": "bootstrap",
+        "css_links": [
+            "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css",
+        ],
+        "body_class": "bootstrap-scope",
+        "description": "Bootstrap 5 utility classes available via CDN.",
+    },
+    "tailwind": {
+        "name": "tailwind",
+        "css_links": [
+            "https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css",
+        ],
+        "body_class": "tailwind-scope",
+        "description": "Tailwind utility classes for rapid prototyping.",
+    },
+}
+
+
 def _build_css_variables(theme: ThemeTokens) -> Dict[str, str]:
     """Flatten the theme tokens into CSS custom properties."""
 
@@ -59,14 +100,23 @@ def _build_css_variables(theme: ThemeTokens) -> Dict[str, str]:
 class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtifact]):
     """Assemble a static site using Jinja2 templates."""
 
-    def __init__(self) -> None:
+    def __init__(self, css_framework: str = "vanilla") -> None:
         super().__init__(name="A13.Builder")
+        if css_framework not in _FRAMEWORK_PRESETS:
+            raise ValueError(
+                "Unsupported CSS framework '%s'. Choose from %s"
+                % (css_framework, ", ".join(sorted(_FRAMEWORK_PRESETS)))
+            )
+        self._framework = css_framework
+        self._framework_meta = _FRAMEWORK_PRESETS[css_framework]
         self._env = Environment(
             loader=FileSystemLoader(str(_TEMPLATE_DIR)),
             autoescape=select_autoescape(["html", "xml"]),
             trim_blocks=True,
             lstrip_blocks=True,
         )
+        self._env.globals["FRAMEWORK_PRESETS"] = _FRAMEWORK_PRESETS
+        self._env.globals["SECTION_PARTIALS"] = _SECTION_PARTIALS
 
     def run(self, data: tuple[ContentBundle, ThemeTokens, NavModel]) -> BuildArtifact:
         content, theme, nav = data
@@ -96,6 +146,8 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
             navigation=augmented_navigation,
             generated_pages=generated_pages,
             css_variables=css_variables,
+            framework=self._framework_meta,
+            section_partials=_SECTION_PARTIALS,
         )
         (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
@@ -109,6 +161,8 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
                 meta_title=(block.title or content.meta_title or "Renewed Page"),
                 fallback_used=content.fallback_used,
                 css_variables=css_variables,
+                framework=self._framework_meta,
+                section_partials=_SECTION_PARTIALS,
             )
             (output_dir / filename).write_text(page_html, encoding="utf-8")
 
