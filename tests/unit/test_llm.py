@@ -27,9 +27,16 @@ def anyio_backend() -> str:
 class StubLLMClient(LLMClient):
     """Deterministic client returning queued responses."""
 
-    def __init__(self, responses: Sequence[ProviderResponse]) -> None:
+    def __init__(
+        self, responses: Sequence[ProviderResponse], *, supports_json_mode: bool = True
+    ) -> None:
         self._responses = list(responses)
         self.calls: List[Dict[str, Any]] = []
+        self._supports_json_mode = supports_json_mode
+
+    @property
+    def supports_json_mode(self) -> bool:
+        return self._supports_json_mode
 
     async def _complete(
         self,
@@ -106,6 +113,26 @@ async def test_complete_json_retries_on_invalid_payload() -> None:
 
     assert completion.data == {"answer": 7}
     assert len(stub.calls) == 2
+
+
+@pytest.mark.anyio
+async def test_complete_json_injects_system_prompt_when_json_mode_missing() -> None:
+    """Clients without native JSON mode receive strict system instructions."""
+
+    stub = StubLLMClient([ProviderResponse(text='{"answer": 1}')], supports_json_mode=False)
+    service = LLMService(provider="stub", client=stub, tracer=get_tracer())
+
+    await service.complete_json(
+        [{"role": "user", "content": "Return json"}],
+        model="stub-model",
+        schema={"type": "object"},
+    )
+
+    first_call = stub.calls[0]
+    assert first_call["response_format"] is None
+    system_messages = [msg for msg in first_call["messages"] if msg["role"] == "system"]
+    assert system_messages, "Expected injected system instruction"
+    assert "ONLY valid JSON" in system_messages[0]["content"]
 
 
 @pytest.mark.anyio
