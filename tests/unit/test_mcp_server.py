@@ -3,6 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
+pytest.importorskip("mcp")
+
 from webrenewal.llm import mcp_server
 
 

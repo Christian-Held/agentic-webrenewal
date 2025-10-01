@@ -64,6 +64,18 @@ class RenewalConfig(BaseModel):
         default=None,
         description="Optional logo URL to display in the navigation",
     )
+    user_prompt: str | None = Field(
+        default=None,
+        description="Free-text instructions for post-edit runs",
+    )
+    apply_scope: List[str] = Field(
+        default_factory=lambda: ["all"],
+        description="Scopes to apply during post-edit runs",
+    )
+    no_recrawl: bool = Field(
+        default=False,
+        description="Skip initial crawl when prior artifacts exist",
+    )
 
     @field_validator("domain", mode="before")
     @classmethod
@@ -165,6 +177,27 @@ class RenewalConfig(BaseModel):
                 )
             )
         return candidate
+
+    @field_validator("apply_scope", mode="before")
+    @classmethod
+    def _normalise_apply_scope(cls, value: Any) -> List[str]:
+        allowed = {"all", "css", "seo", "images", "logo", "content", "nav", "head"}
+        if value is None:
+            return ["all"]
+        if isinstance(value, str):
+            tokens = [token.strip().lower() for token in value.split(",") if token.strip()]
+        elif isinstance(value, (list, tuple, set)):
+            tokens = [str(token).strip().lower() for token in value if str(token).strip()]
+        else:
+            raise ValueError("apply_scope must be a comma separated string or list of scopes")
+        if not tokens:
+            return ["all"]
+        for token in tokens:
+            if token not in allowed:
+                raise ValueError(
+                    f"Unsupported apply_scope entry '{token}'. Expected one of: {', '.join(sorted(allowed))}."
+                )
+        return tokens
 
     def navigation_settings(self) -> Dict[str, Any]:
         """Return the resolved navigation settings merged with advanced config."""
