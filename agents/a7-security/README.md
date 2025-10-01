@@ -170,3 +170,10 @@ Ziel: **frühe Identifikation von Risiken**, die in das Renewal-Angebot (A15) ei
 
 📄 **Fazit**:
 A7 ist der **Sicherheitsprüfer**. Er verbindet technische Header-Checks, TLS-Validierung und bekannte Schwachstellen mit verständlichen Reports. Grundlage für **Compliance, Risikoberatung und Preisschätzung** im Angebot.
+
+## Testing
+
+* `pytest tests/unit/agents/test_security_agent.py -q`
+* Header-Prüfungen nutzen die JSON/HTML-Dummies, um fehlende Policies zu simulieren.
+* Happy-Path stellt sicher, dass vollständige Header keinen Score-Verlust verursachen.
+

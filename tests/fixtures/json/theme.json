@@ -1,0 +1,15 @@
+{
+  "colors": {
+    "primary": "#0b7285"
+  },
+  "typography": {
+    "body_family": "'Inter', sans-serif"
+  },
+  "spacing": {
+    "md": "1rem"
+  },
+  "radius": {},
+  "breakpoints": {},
+  "elevation": {},
+  "slots": {}
+}

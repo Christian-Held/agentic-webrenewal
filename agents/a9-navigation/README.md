@@ -153,3 +153,10 @@ Beispiel:
 
 📄 **Fazit**:
 A9 liefert die **Navigation Blueprint** einer Website. Damit kann der Builder (A13) eine **barrierefreie, konsistente Navigation** generieren. Zusammen mit A6 (SEO) und A5 (Accessibility) ist er ein zentrales Bindeglied für Usability und Ranking.
+
+## Testing
+
+* `pytest tests/unit/agents/test_navigation_agent.py -q`
+* Testfälle prüfen verschachtelte Menüs sowie Fallback-Anker bei fehlenden `<nav>`-Elementen.
+* Dummy-HTML ist unter `tests/fixtures/html/` abgelegt.
+

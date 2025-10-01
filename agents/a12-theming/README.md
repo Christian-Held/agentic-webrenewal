@@ -145,3 +145,10 @@ Beispiel:
 📄 **Fazit**:
 A12 ist der **Design-Orchestrator**. Er transformiert abstrakte Branding-Vorgaben + RenewalPlan in **standardisierte Design Tokens**.
 Damit kann A13 (Builder) Websites konsistent und modern rendern – egal ob als Minimal-Update oder Full Redesign.
+
+## Testing
+
+* `pytest tests/unit/agents/test_theming_agent.py -q`
+* Design-Direktiven (z. B. „blau", „dark") werden über Fixtures geprüft; Slots & CSS-Variablen werden verifiziert.
+* Dummy-Plan stammt aus `tests/conftest.py` und spiegelt die SOLID-Fixture-Struktur.
+

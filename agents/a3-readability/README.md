@@ -157,3 +157,10 @@ A3 arbeitet als „Content Extractor“ zwischen Rohdaten und semantischer Analy
 
 📄 **Fazit**:
 A3 wandelt die Roh-HTMLs in **strukturierte Content-Daten** um. Ohne A3 wäre keine fundierte SEO-, Accessibility- oder Content-Analyse möglich. Technologie-agnostisch lässt sich der Agent sowohl mit **Python (trafilatura, bs4)** als auch mit **Java (Jsoup, Boilerpipe)** realisieren.
+
+## Testing
+
+* `pytest tests/unit/agents/test_readability_agent.py -q`
+* Tests decken trafilatura-Fallbacks und Sprach-Erkennung mit Dummy-HTML ab.
+* Siehe auch Integrationstest (`tests/integration/test_pipeline_integration.py`) für das Zusammenspiel innerhalb der Pipeline.
+

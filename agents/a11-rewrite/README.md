@@ -170,3 +170,10 @@ Beispiel:
 📄 **Fazit**:
 A11 ist der **Content-Generator und Optimierer**. Er verwandelt die Analyseergebnisse + Plan in **hochwertige, SEO-optimierte Inhalte**.
 Er ist stark LLM-getrieben, benötigt aber Validatoren, um **Schema-Validität und inhaltliche Qualität** sicherzustellen.
+
+## Testing
+
+* `pytest tests/unit/agents/test_rewrite_agent.py -q`
+* Stub-LLMs simulieren JSON-Antworten sowie Fehlerfälle; Fallback-Bundles sichern den Edge-Case ab.
+* Integrationstest verwendet einen statischen Bundle-Stub, um die Pipeline deterministisch zu halten.
+

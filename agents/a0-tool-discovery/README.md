@@ -183,3 +183,10 @@ Die Discovery umfasst:
 A0 ist ein klar abgrenzbarer Service, der in sich abgeschlossen entwickelt werden kann. Egal ob in **Python (asyncio, aiohttp, bs4)** oder **Java (Spring Boot, Jsoup, Kafka)** – die Hauptaufgaben sind Fetch → Parse → Score → Catalog.
 Die Outputs (`ToolCatalog.json` + `.md` Snippets) bilden die Grundlage für alle weiteren Agenten.
 
+
+## Testing
+
+* `pytest tests/unit/agents/test_tool_discovery_agent.py -q`
+* Dummy-Daten: HTML/JSON-Beispiele unter `tests/fixtures/` stellen reproduzierbare Eingaben bereit.
+* Für Gesamt-Coverage siehe Haupt-README (`pytest --cov=webrenewal tests/`).
+

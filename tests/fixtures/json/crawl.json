@@ -1,0 +1,12 @@
+{
+  "pages": [
+    {
+      "url": "https://example.com/",
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "text/html"
+      },
+      "html": "<html></html>"
+    }
+  ]
+}

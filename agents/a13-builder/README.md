@@ -148,3 +148,10 @@ Beispiel:
 📄 **Fazit**:
 Der Builder Agent A13 ist der **Produktionsmotor**. Er wandelt Analysen, Inhalte und Designvorgaben in ein **reales, testbares Build-Artefakt** um.
 Damit wird die Pipeline greifbar: von Analyse & Planung (A0–A12) hin zur sichtbaren Website, die Kunden vergleichen und bewerten können.
+
+## Testing
+
+* `pytest tests/unit/agents/test_builder_agent.py -q`
+* Tests prüfen Dateiausgabe, Slug-Kollisionen und Framework-Validierung mit den Dummy-Blöcken aus `tests/conftest.py`.
+* Der Integrationstest erzeugt zusätzlich einen echten `sandbox/newsite/`-Build.
+
