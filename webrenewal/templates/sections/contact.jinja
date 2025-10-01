@@ -1,0 +1,58 @@
+{% set contact = block.data if block.data is mapping else {} %}
+{% set entries = contact.get('items') %}
+{% if entries is not iterable %}
+  {% set structured = [] %}
+{% else %}
+  {% set structured = entries %}
+{% endif %}
+{% if structured is mapping %}
+  {% set structured = structured.items() %}
+{% endif %}
+{% set info = namespace(rows=[]) %}
+{% for key, value in contact.items() %}
+  {% if key not in ['items', 'cta_label', 'cta_href', 'cta_text', 'cta_url'] and value %}
+    {% set info.rows = info.rows + [(key, value)] %}
+  {% endif %}
+{% endfor %}
+<section class="section section--contact">
+  <div class="section__inner">
+    <h2 class="section__title">{{ block.title or 'Contact' }}</h2>
+    {% if structured %}
+    <dl class="contact-list">
+      {% for entry in structured %}
+      {% if entry is mapping %}
+      {% set label = entry.label %}
+      {% set value = entry.value %}
+      {% elif entry is sequence and entry|length == 2 %}
+      {% set label = entry[0] %}
+      {% set value = entry[1] %}
+      {% else %}
+      {% set label = None %}
+      {% set value = None %}
+      {% endif %}
+      {% if label and value %}
+      <div class="contact-item">
+        <dt class="contact-item__label">{{ label }}</dt>
+        <dd class="contact-item__value">{{ value }}</dd>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </dl>
+    {% elif info.rows %}
+    <div class="contact-details">
+      {% for pair in info.rows %}
+      <p class="contact-details__row"><strong>{{ pair[0]|replace('_', ' ')|title }}:</strong> {{ pair[1] }}</p>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="section__body">{{ block.body }}</p>
+    {% endif %}
+    {% set cta_label = contact.cta_label or contact.cta_text %}
+    {% set cta_href = contact.cta_href or contact.cta_url %}
+    {% if cta_label and cta_href %}
+    <p class="section__actions">
+      <a class="button button--secondary" href="{{ cta_href }}">{{ cta_label }}</a>
+    </p>
+    {% endif %}
+  </div>
+</section>

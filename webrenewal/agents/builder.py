@@ -8,7 +8,14 @@ from typing import Dict, Iterable, List, Mapping, Set
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .base import Agent
-from ..models import BuildArtifact, ContentBlock, ContentBundle, NavModel, NavigationItem, ThemeTokens
+from ..models import (
+    BuildArtifact,
+    ContentBlock,
+    ContentBundle,
+    NavModel,
+    NavigationItem,
+    ThemeTokens,
+)
 from ..storage import SANDBOX_DIR, list_files
 
 
@@ -49,6 +56,13 @@ def _merge_navigation(nav: NavModel, blocks: Iterable[tuple[ContentBlock, str]])
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 
+
+_SECTION_PARTIALS: Mapping[str, str] = {
+    "hero": "sections/hero.jinja",
+    "faq": "sections/faq.jinja",
+    "contact": "sections/contact.jinja",
+    "text": "sections/text.jinja",
+}
 
 _FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
     "vanilla": {
@@ -101,6 +115,8 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
             lstrip_blocks=True,
         )
         self._env.globals["FRAMEWORK_PRESETS"] = _FRAMEWORK_PRESETS
+        self._env.globals["SECTION_PARTIALS"] = _SECTION_PARTIALS
+
 
     def run(self, data: tuple[ContentBundle, ThemeTokens, NavModel]) -> BuildArtifact:
         content, theme, nav = data
@@ -131,6 +147,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
             generated_pages=generated_pages,
             css_variables=css_variables,
             framework=self._framework_meta,
+            section_partials=_SECTION_PARTIALS,
         )
         (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
@@ -145,6 +162,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
                 fallback_used=content.fallback_used,
                 css_variables=css_variables,
                 framework=self._framework_meta,
+                section_partials=_SECTION_PARTIALS,
             )
             (output_dir / filename).write_text(page_html, encoding="utf-8")
 

@@ -1,14 +1,23 @@
+{% macro render_items(items) %}
+  {% for item in items %}
+    <li class="site-nav__item{{ ' site-nav__item--has-children' if item.children }}">
+      <a class="site-nav__link" href="{{ item.href }}">{{ item.label }}</a>
+      {% if item.children %}
+      <ul class="site-nav__sublist">
+        {{ render_items(item.children) }}
+      </ul>
+      {% endif %}
+    </li>
+  {% endfor %}
+{% endmacro %}
+
 <nav class="site-nav" aria-label="Hauptnavigation">
   <ul class="site-nav__list">
     <li class="site-nav__item">
       <a class="site-nav__link" href="{{ home_href | default('index.html') }}">Start</a>
     </li>
     {% if navigation and navigation|length %}
-      {% for item in navigation %}
-      <li class="site-nav__item">
-        <a class="site-nav__link" href="{{ item.href }}">{{ item.label }}</a>
-      </li>
-      {% endfor %}
+      {{ render_items(navigation) }}
     {% else %}
       <li class="site-nav__item site-nav__item--placeholder" aria-hidden="true">
         Navigation folgt automatisch

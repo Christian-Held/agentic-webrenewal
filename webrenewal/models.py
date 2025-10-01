@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 @dataclass(slots=True)
@@ -134,6 +134,7 @@ class MediaReport(Serializable):
 class NavigationItem(Serializable):
     label: str
     href: str
+    children: List["NavigationItem"] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -160,6 +161,8 @@ class RenewalPlan(Serializable):
 class ContentBlock(Serializable):
     title: Optional[str]
     body: str
+    type: str = "text"
+    data: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

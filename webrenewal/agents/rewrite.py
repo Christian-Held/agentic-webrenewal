@@ -8,7 +8,7 @@ import logging
 import os
 import re
 from itertools import zip_longest
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from openai import AsyncOpenAI, OpenAIError
 
@@ -21,6 +21,9 @@ RewriteInput = Union[
     Tuple[ContentExtract, RenewalPlan],
     Tuple[str, ContentExtract, RenewalPlan],
 ]
+
+
+_SECTION_TYPES = {"hero", "faq", "contact", "text"}
 
 
 class RewriteAgent(Agent[RewriteInput, ContentBundle]):
@@ -292,6 +295,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                     ContentBlock(
                         title=section.title or f"Section {index}",
                         body=fallback_body,
+                        type="text",
                     )
                 )
                 continue
@@ -304,6 +308,14 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
             if not isinstance(body, str) or not body.strip():
                 raise ValueError("Invalid block body returned by LLM")
 
+            raw_type = block_data.get("type")
+            block_type = self._normalise_block_type(raw_type)
+            data_payload = block_data.get("data")
+            if isinstance(data_payload, dict):
+                block_data_payload: Dict[str, Any] = data_payload
+            else:
+                block_data_payload = {}
+
             if section is None:
                 fallback_title = title or f"Additional Section {index}"
             else:
@@ -313,6 +325,8 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                 ContentBlock(
                     title=fallback_title,
                     body=body.strip(),
+                    type=block_type,
+                    data=block_data_payload,
                 )
             )
 
@@ -373,7 +387,9 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
         )
         user_instruction = (
             "Return JSON with keys 'meta_title', 'meta_description' and 'blocks'. "
-            "Provide exactly one entry in 'blocks' with 'title' and 'body'. "
+            "Provide exactly one entry in 'blocks' with 'title', 'body', and 'type'. "
+            "Allowed block types are hero, faq, contact, or text (use 'text' when unsure). "
+            "For hero, faq, or contact sections, include a 'data' object capturing structured details. "
             f"Align the tone with the goals: {', '.join(plan.goals) if plan.goals else goals_text}. "
             "Keep HTML safe (no Markdown). "
             f"This is section {index + 1} of {total_sections}. "
@@ -765,6 +781,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                 ContentBlock(
                     title=section.title or f"Section {index}",
                     body=refreshed,
+                    type="text",
                 )
             )
 
@@ -778,6 +795,13 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
             meta_description=meta_description,
             fallback_used=True,
         )
+
+    def _normalise_block_type(self, raw_type: Any) -> str:
+        if isinstance(raw_type, str):
+            candidate = raw_type.strip().lower()
+            if candidate in _SECTION_TYPES:
+                return candidate
+        return "text"
 
 
 __all__ = ["RewriteAgent"]

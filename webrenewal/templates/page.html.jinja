@@ -84,6 +84,23 @@
         font-style: italic;
       }
 
+      .site-nav__item--has-children {
+        position: relative;
+      }
+
+      .site-nav__sublist {
+        list-style: none;
+        margin: var(--space-xs) 0 0;
+        padding: var(--space-xs) 0 0;
+        border-left: 1px solid color-mix(in srgb, var(--slot-nav-background) 65%, transparent);
+        display: grid;
+        gap: var(--space-xs);
+      }
+
+      .site-nav__sublist .site-nav__link {
+        font-size: 0.9em;
+      }
+
       .site-nav__link {
         color: var(--slot-nav-text);
         text-decoration: none;
@@ -104,23 +121,110 @@
         max-width: min(100%, calc(var(--breakpoint-lg) + var(--space-xl)));
         margin: 0 auto;
         padding: calc(var(--space-xl) + var(--space-lg)) var(--space-md) var(--space-xl);
+        display: grid;
+        gap: var(--space-xl);
       }
 
-      article {
+      .section {
         background: color-mix(in srgb, var(--color-surface-alt) 96%, transparent);
         border-radius: var(--radius-lg);
-        padding: clamp(var(--space-md), 2.5vw, var(--space-xl));
         border: 1px solid var(--color-border);
         box-shadow: var(--shadow-raised);
       }
 
-      article p {
+      .section--hero {
+        background: color-mix(in srgb, var(--slot-hero-background) 88%, transparent);
+        color: var(--slot-hero-text);
+      }
+
+      .section__inner {
+        padding: clamp(var(--space-md), 2.5vw, var(--space-xl));
+        display: grid;
+        gap: var(--space-md);
+      }
+
+      .section__title {
+        margin: 0;
+        font-family: var(--font-heading-family);
+        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.1);
+      }
+
+      .section__body {
+        font-size: 1rem;
+        line-height: var(--font-line-height);
+        white-space: pre-line;
+      }
+
+
+      .hero__kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.8rem;
+        margin: 0;
+        opacity: 0.85;
+      }
+
+      .hero__title {
+        margin: 0;
+        font-family: var(--font-heading-family);
+        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.5);
+      }
+
+      .hero__body {
         margin: 0;
         white-space: pre-line;
       }
 
-      article.fallback-block {
-        border: 2px dashed var(--color-accent);
+      .button {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-xs);
+        text-decoration: none;
+        font-weight: 600;
+        padding: var(--space-sm) var(--space-md);
+        border-radius: var(--radius-pill);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .button--primary {
+        background: var(--color-primary);
+        color: var(--color-on-primary, #ffffff);
+      }
+
+      .button--secondary {
+        background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+        color: var(--color-primary);
+        border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+      }
+
+      .button:hover,
+      .button:focus-visible {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-raised);
+      }
+
+      .faq-list,
+      .contact-list {
+        display: grid;
+        gap: var(--space-md);
+        margin: 0;
+        padding: 0;
+      }
+
+      .faq-item__question,
+      .contact-item__label {
+        font-weight: 700;
+        margin: 0 0 var(--space-xs);
+      }
+
+      .faq-item__answer,
+      .contact-item__value {
+        margin: 0;
+        white-space: pre-line;
+      }
+
+      .contact-details__row {
+        margin: 0;
       }
 
       .fallback-banner {
@@ -129,7 +233,7 @@
         color: var(--color-text);
         padding: clamp(var(--space-md), 2vw, var(--space-lg));
         border-radius: var(--radius-md);
-        margin: 0 auto var(--space-lg);
+        margin: 0 auto;
         box-shadow: var(--shadow-flat);
       }
 
@@ -165,23 +269,26 @@
           padding: var(--space-lg) var(--space-sm) var(--space-xl);
         }
 
-        article {
+        .section__inner {
           padding: clamp(var(--space-md), 4vw, var(--space-lg));
         }
       }
     </style>
   </head>
   <body class="{{ framework.body_class }}">
-    {% include "_header.jinja" with header_title=(block.title or meta_title) home_href=home_href %}
+    {% set header_subtitle = None %}
+    {% if block.type == 'hero' and block.data is mapping %}
+      {% set header_subtitle = block.data.get('tagline') or block.data.get('subtitle') %}
+    {% endif %}
+    {% include "_header.jinja" with header_title=(block.title or meta_title) header_subtitle=header_subtitle home_href=home_href %}
     <main>
       {% if fallback_used %}
       <div class="fallback-banner">
         Automatischer LLM-Text fehlt für diese Seite. Bitte Inhalte manuell nachbearbeiten.
       </div>
       {% endif %}
-      <article class="{{ 'fallback-block' if fallback_used else '' }}">
-        <p>{{ block.body }}</p>
-      </article>
+      {% set partial = section_partials.get(block.type, section_partials['text']) %}
+      {% include partial with context %}
     </main>
     {% include "_footer.jinja" %}
   </body>
