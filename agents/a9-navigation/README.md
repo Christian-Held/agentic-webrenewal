@@ -153,3 +153,17 @@ Beispiel:
 
 📄 **Fazit**:
 A9 liefert die **Navigation Blueprint** einer Website. Damit kann der Builder (A13) eine **barrierefreie, konsistente Navigation** generieren. Zusammen mit A6 (SEO) und A5 (Accessibility) ist er ein zentrales Bindeglied für Usability und Ranking.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Extrahiert Links aus NAV- und UL-Containern und dedupliziert anhand Label/URL.
+- Erzeugt ein kompaktes Navigationsmodell für den Builder.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Strukturierte Hierarchie (Dropdowns, Brotkrumen) modellieren.
+- Priorisierung nach Nutzersignalen oder Sitemap-Reihenfolge.
+

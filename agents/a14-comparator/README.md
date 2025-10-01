@@ -150,3 +150,17 @@ Beispiel:
 📄 **Fazit**:
 A14 ist der **Vergleichs- und Vertrauensanker**. Er macht Fortschritte sichtbar, dokumentiert Unterschiede und bereitet die Basis für Angebots- und Verkaufsprozesse.
 Ohne A14 wäre das System eine Blackbox – mit A14 wird es für Kunden nachvollziehbar und überprüfbar.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Vergleicht Original-HTML mit neuem Build und protokolliert Matching-Heuristiken.
+- Fällt kontrolliert auf Index/Fallback-Dateien zurück, wenn kein direkter Treffer existiert.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Visuelle Diff-Generierung (Screenshots, Percy/Playwright).
+- Kommentierung nach Relevanz (z. B. hervorgehobene SEO-Änderungen).
+
