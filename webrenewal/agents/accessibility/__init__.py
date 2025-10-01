@@ -6,7 +6,7 @@ from typing import List
 
 from bs4 import BeautifulSoup
 
-from .base import Agent
+from ..common import Agent
 from ..models import A11yReport, CrawlResult, Issue
 
 

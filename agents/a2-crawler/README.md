@@ -179,3 +179,17 @@ Wesentliche Eigenschaften:
 
 📄 **Fazit**:
 A2 ist ein ressourcenintensiver, aber hochkritischer Microservice. Ohne valide Crawl-Daten sind nachgelagerte Analysen (SEO, A11y, Security) wertlos. Die klare Trennung von **Fetch (leichtgewichtig)** und **Render (schwergewichtig)** ist essenziell, um Skalierung und Effizienz zu gewährleisten.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Breitensuche über HTML-Seiten mit Link-Normalisierung und Domain-Filter.
+- Maximale Seitenausbeute per CLI konfigurierbar.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- JavaScript-Rendering und Asset-Download für komplexe SPAs.
+- Adaptive Crawl-Strategien (Priorisierung, Rate-Limiting, Robots-Compliance).
+

@@ -182,4 +182,17 @@ Die Discovery umfasst:
 📄 **Fazit**:
 A0 ist ein klar abgrenzbarer Service, der in sich abgeschlossen entwickelt werden kann. Egal ob in **Python (asyncio, aiohttp, bs4)** oder **Java (Spring Boot, Jsoup, Kafka)** – die Hauptaufgaben sind Fetch → Parse → Score → Catalog.
 Die Outputs (`ToolCatalog.json` + `.md` Snippets) bilden die Grundlage für alle weiteren Agenten.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Statische Werkzeugliste mit Playwright-, Fetch-, Filesystem- und LibSQL-MCP-Einträgen für den Pipeline-Start.
+- Logging dokumentiert die Anzahl der zusammengestellten Tools.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Automatisches Discovery aus Projektkonfiguration oder externen Registern.
+- Health-Checks und Capability-Metadaten zur Laufzeit prüfen.
 
