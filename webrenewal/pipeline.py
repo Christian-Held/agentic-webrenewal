@@ -29,6 +29,7 @@ from .agents import (
     ToolDiscoveryAgent,
 )
 from .agents.base import Agent
+from .llm import BaseLLMClient, create_llm_client, default_model_for
 from .models import (
     A11yReport,
     ContentBundle,
@@ -55,9 +56,31 @@ class WebRenewalPipeline:
         config: Optional[PipelineConfig] = None,
         *,
         css_framework: str = "vanilla",
+        llm_provider: str = "openai",
+        llm_model: str | None = None,
     ) -> None:
         self.logger = logger or logging.getLogger("pipeline")
         self.config = config or load_pipeline_config()
+        self._llm_provider = llm_provider
+        self._llm_client: BaseLLMClient | None = create_llm_client(llm_provider)
+        resolved_model = llm_model or default_model_for(llm_provider)
+        self._llm_model = resolved_model
+        if self._llm_client is None:
+            log_event(
+                self.logger,
+                logging.WARNING,
+                "pipeline.llm.unavailable",
+                provider=self._llm_provider,
+                model=self._llm_model,
+            )
+        else:
+            log_event(
+                self.logger,
+                logging.DEBUG,
+                "pipeline.llm.ready",
+                provider=self._llm_provider,
+                model=self._llm_model,
+            )
         self.tool_discovery = ToolDiscoveryAgent()
         self.scope = ScopeAgent()
         self.crawler = CrawlerAgent()
@@ -69,7 +92,10 @@ class WebRenewalPipeline:
         self.media = MediaAgent()
         self.navigation = NavigationAgent()
         self.plan = PlanProposalAgent()
-        self.rewrite = RewriteAgent()
+        self.rewrite = RewriteAgent(
+            model=self._llm_model,
+            llm_client=self._llm_client,
+        )
         self.theming = ThemingAgent(
             design_directives=self.config.design_directives
         )
@@ -302,9 +328,16 @@ def run_pipeline(
     *,
     config: Optional[PipelineConfig] = None,
     css_framework: str = "vanilla",
+    llm_provider: str = "openai",
+    llm_model: str | None = None,
 ) -> None:
     configure_logging(level=log_level)
-    pipeline = WebRenewalPipeline(config=config, css_framework=css_framework)
+    pipeline = WebRenewalPipeline(
+        config=config,
+        css_framework=css_framework,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+    )
     pipeline.execute(domain)
 
 

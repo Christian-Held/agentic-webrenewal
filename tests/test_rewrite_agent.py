@@ -1,47 +1,40 @@
 import json
-import sys
 import unittest
-from types import SimpleNamespace
 
 
-class _DummyOpenAIError(Exception):
-    """Lightweight stand-in for the OpenAI SDK error type."""
+class _StubLLMClient:
+    """Test double that mimics the ``complete_json`` contract."""
 
-
-class _DummyOpenAI:
-    def __init__(self, *args, **kwargs):  # pragma: no cover - simple stub
-        pass
-
-
-class _LegacyResponses:
-    def __init__(self, payloads):
+    def __init__(self, payloads: list[dict[str, object]]) -> None:
         self._payloads = payloads
         self.calls: list[dict[str, object]] = []
-        self._successes = 0
+        self._index = 0
 
-    async def create(self, **kwargs):  # pragma: no cover - behaviour tested indirectly
-        self.calls.append(kwargs)
-        if len(self.calls) == 1 and "response_format" in kwargs:
-            raise TypeError("create() got an unexpected keyword argument 'response_format'")
+    async def complete_json(  # pragma: no cover - behaviour exercised via agent
+        self,
+        messages,
+        *,
+        model,
+        temperature=None,
+    ):
+        self.calls.append(
+            {
+                "messages": messages,
+                "model": model,
+                "temperature": temperature,
+            }
+        )
+        payload = self._payloads[self._index]
+        self._index += 1
+        return LLMResponse(text=json.dumps(payload), data=payload)
 
-        payload = self._payloads[self._successes]
-        self._successes += 1
-        return SimpleNamespace(output_text=json.dumps(payload))
 
-
-class _LegacyClient:
-    def __init__(self, payloads):
-        self.responses = _LegacyResponses(payloads)
-
-
-if "openai" not in sys.modules:
-    sys.modules["openai"] = SimpleNamespace(
-        OpenAI=_DummyOpenAI,
-        AsyncOpenAI=_DummyOpenAI,
-        OpenAIError=_DummyOpenAIError,
-    )
+class _ErrorLLMClient:
+    async def complete_json(self, *args, **kwargs):  # pragma: no cover - simple stub
+        raise ValueError("boom")
 
 from webrenewal.agents.rewrite import RewriteAgent
+from webrenewal.llm import LLMResponse
 from webrenewal.models import (
     ContentBundle,
     ContentExtract,
@@ -82,30 +75,6 @@ class RewriteAgentTests(unittest.TestCase):
         self.assertIn("Unknown Site", bundle.meta_title or "")
 
     def test_run_with_domain_tuple_threads_domain(self) -> None:
-        agent = RewriteAgent()
-        fake_client = object()
-        agent._get_client = lambda: fake_client  # type: ignore[assignment]
-
-        captured: dict[str, object] = {}
-
-        def fake_llm(self, client, domain, content, plan):  # type: ignore[no-untyped-def]
-            captured["client"] = client
-            captured["domain"] = domain
-            captured["content"] = content
-            captured["plan"] = plan
-            return ContentBundle(blocks=[], meta_title=None, meta_description="desc", fallback_used=False)
-
-        agent._rewrite_with_llm = fake_llm.__get__(agent, RewriteAgent)
-
-        bundle = agent.run(("example.com", self.content, self.plan))
-
-        self.assertFalse(bundle.fallback_used)
-        self.assertIs(captured.get("client"), fake_client)
-        self.assertEqual(captured.get("domain"), "example.com")
-        self.assertIs(captured.get("content"), self.content)
-        self.assertIs(captured.get("plan"), self.plan)
-
-    def test_retry_without_response_format_when_unsupported(self) -> None:
         payloads = [
             {
                 "meta_title": "Example Site",
@@ -123,18 +92,24 @@ class RewriteAgentTests(unittest.TestCase):
             },
         ]
 
-        agent = RewriteAgent(max_parallel_requests=2)
-        legacy_client = _LegacyClient(payloads)
-        agent._get_client = lambda: legacy_client  # type: ignore[assignment]
+        stub = _StubLLMClient(payloads)
+        agent = RewriteAgent(llm_client=stub, model="test-model", max_parallel_requests=2)
 
         bundle = agent.run(("example.com", self.content, self.plan))
 
         self.assertFalse(bundle.fallback_used)
-        self.assertEqual(len(legacy_client.responses.calls), 3)
-        self.assertIn("response_format", legacy_client.responses.calls[0])
-        self.assertNotIn("response_format", legacy_client.responses.calls[1])
-        self.assertIn("response_format", legacy_client.responses.calls[2])
-        self.assertEqual(bundle.blocks[0].body, "New welcome copy.")
+        self.assertEqual(len(bundle.blocks), len(self.sections))
+        self.assertEqual(len(stub.calls), len(self.sections))
+        first_messages = stub.calls[0]["messages"]
+        self.assertTrue(any("example.com" in msg["content"] for msg in first_messages))
+
+    def test_value_error_from_llm_triggers_fallback(self) -> None:
+        agent = RewriteAgent(llm_client=_ErrorLLMClient())
+
+        bundle = agent.run(("example.com", self.content, self.plan))
+
+        self.assertTrue(bundle.fallback_used)
+        self.assertEqual(len(bundle.blocks), len(self.sections))
 
 
 if __name__ == "__main__":

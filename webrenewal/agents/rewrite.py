@@ -6,11 +6,10 @@ import asyncio
 import json
 import logging
 import os
-import re
 from itertools import zip_longest
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from openai import AsyncOpenAI, OpenAIError
+from ..llm import BaseLLMClient, LLMError, create_llm_client, default_model_for
 
 from .base import Agent
 from ..models import ContentBlock, ContentBundle, ContentExtract, RenewalPlan
@@ -31,15 +30,23 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
 
     def __init__(
         self,
-        model: str = "gpt-4o-mini",
+        model: str | None = None,
         temperature: float = 0.4,
         *,
         max_parallel_requests: int = 4,
+        llm_client: Optional[BaseLLMClient] = None,
+        llm_provider: Optional[str] = None,
     ) -> None:
         super().__init__(name="A11.Rewrite")
-        self._model = model
+        self._llm_provider = (
+            llm_provider
+            or os.getenv("LLM_PROVIDER")
+            or "openai"
+        )
+        resolved_model = model or default_model_for(self._llm_provider)
+        self._model = resolved_model
         self._temperature = temperature
-        self._client: Optional[AsyncOpenAI] = None
+        self._llm_client: Optional[BaseLLMClient] = llm_client
         self._max_parallel = max(1, max_parallel_requests)
 
     def run(self, data: RewriteInput) -> ContentBundle:  # type: ignore[override]
@@ -59,7 +66,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
             log_event(
                 self.logger,
                 logging.WARNING,
-                "rewrite.openai.missing_key",
+                "rewrite.llm.unavailable",
                 agent=self.name,
                 domain=domain,
             )
@@ -70,14 +77,14 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                 "rewrite.fallback",
                 agent=self.name,
                 domain=domain,
-                reason="missing_openai_key",
+                reason="missing_llm_client",
                 blocks=len(bundle.blocks),
             )
             return bundle
 
         try:
             bundle = self._rewrite_with_llm(client, domain, content, plan)
-        except (OpenAIError, ValueError, json.JSONDecodeError) as exc:
+        except (LLMError, ValueError, json.JSONDecodeError) as exc:
             log_event(
                 self.logger,
                 logging.WARNING,
@@ -135,30 +142,28 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
 
         return resolved_domain, content, plan
 
-    def _get_client(self) -> Optional[AsyncOpenAI]:
-        """Initialise the OpenAI client if credentials are configured."""
+    def _get_client(self) -> Optional[BaseLLMClient]:
+        """Initialise the configured LLM client if credentials are present."""
 
-        if self._client is not None:
-            return self._client
-
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            return None
-
-        self._client = AsyncOpenAI(api_key=api_key)
-        return self._client
+        if self._llm_client is None:
+            self._llm_client = create_llm_client(self._llm_provider)
+        return self._llm_client
 
     def _rewrite_with_llm(
-        self, client: AsyncOpenAI, domain: str, content: ContentExtract, plan: RenewalPlan
+        self, client: BaseLLMClient, domain: str, content: ContentExtract, plan: RenewalPlan
     ) -> ContentBundle:
-        """Leverage the OpenAI Responses API to refresh the site copy."""
+        """Leverage the configured LLM provider to refresh the site copy."""
 
         return self._run_async(
             self._rewrite_with_llm_async(client, domain, content, plan)
         )
 
     async def _rewrite_with_llm_async(
-        self, client: AsyncOpenAI, domain: str, content: ContentExtract, plan: RenewalPlan
+        self,
+        client: BaseLLMClient,
+        domain: str,
+        content: ContentExtract,
+        plan: RenewalPlan,
     ) -> ContentBundle:
         """Perform concurrent rewrite requests for each section."""
 
@@ -347,7 +352,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
 
     async def _rewrite_section(
         self,
-        client: AsyncOpenAI,
+        client: BaseLLMClient,
         domain: str,
         site_label: str,
         action_summaries: List[dict[str, Any]],
@@ -423,52 +428,20 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
                 section=index + 1,
                 sections=total_sections,
             ) as span:
-                try:
-                    response = await client.responses.create(
-                        **request_kwargs,
-                        response_format={"type": "json_object"},
-                    )
-                    span.note(mode="json_object")
-                except TypeError as exc:
-                    if "response_format" not in str(exc):
-                        span.note(error=str(exc), exception=exc.__class__.__name__)
-                        raise
+                response = await client.complete_json(
+                    request_kwargs["input"],
+                    model=request_kwargs["model"],
+                    temperature=request_kwargs.get("temperature"),
+                )
+                span.note(mode="json_object")
 
-                    log_event(
-                        self.logger,
-                        logging.DEBUG,
-                        "rewrite.llm.legacy_client",
-                        agent=self.name,
-                        domain=domain,
-                        error=str(exc),
-                        exception=exc.__class__.__name__,
-                        section=index + 1,
-                    )
-                    response = await client.responses.create(**request_kwargs)
-                    span.note(mode="fallback_request")
+        if response.data is None:
+            raise ValueError("LLM returned an empty payload")
 
-        raw_output = self._extract_response_text(response)
-        if not raw_output:
-            raise ValueError("No textual output returned by LLM")
+        if not isinstance(response.data, dict):
+            raise ValueError("Unexpected payload type from LLM")
 
-        cleaned_output = self._strip_json_fences(raw_output)
-        if not cleaned_output:
-            raise ValueError("Empty JSON payload returned by LLM")
-        try:
-            data = json.loads(cleaned_output)
-        except json.JSONDecodeError:
-            log_event(
-                self.logger,
-                logging.DEBUG,
-                "rewrite.llm.parse_failure",
-                agent=self.name,
-                domain=domain,
-                section=index + 1,
-                sample=raw_output[:500],
-            )
-            raise
-
-        return data
+        return response.data
 
     def _run_async(self, coro: Any) -> Any:
         """Execute ``coro`` ensuring compatibility with running event loops."""
@@ -485,281 +458,6 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
             finally:
                 asyncio.set_event_loop(None)
                 loop.close()
-
-    def _extract_response_text(self, response: Any) -> str:
-        """Normalise the various OpenAI client payload shapes into a JSON string."""
-
-        output_text = getattr(response, "output_text", None)
-        if isinstance(output_text, str) and output_text.strip():
-            return output_text
-
-        parts: List[str] = []
-        for item in getattr(response, "output", []) or []:
-            for content_item in getattr(item, "content", []) or []:
-                text_value = self._coerce_content_text(content_item)
-                if text_value:
-                    parts.append(text_value)
-        if parts:
-            return "".join(parts)
-
-        structured = self._safe_model_dump(response)
-        if structured:
-            candidate = self._locate_rewrite_payload(structured)
-            if candidate:
-                return candidate
-
-        return ""
-
-    def _coerce_content_text(self, content_item: Any) -> Optional[str]:
-        content_type = getattr(content_item, "type", None)
-
-        if content_type in {"output_json", "json"}:
-            json_payload = getattr(content_item, "json", None)
-            if isinstance(json_payload, dict):
-                return json.dumps(json_payload)
-            if hasattr(json_payload, "model_dump"):
-                try:
-                    dumped = json_payload.model_dump()
-                except Exception:  # pragma: no cover - defensive
-                    dumped = None
-                if isinstance(dumped, dict):
-                    return json.dumps(dumped)
-
-        if content_type in {"output_text", "text", None}:
-            text_obj = getattr(content_item, "text", None)
-            normalised = self._normalise_text_value(text_obj)
-            if normalised:
-                return normalised
-
-        return None
-
-    def _normalise_text_value(self, text_obj: Any) -> Optional[str]:
-        if text_obj is None:
-            return None
-        if isinstance(text_obj, str):
-            return text_obj
-        if hasattr(text_obj, "value"):
-            value = getattr(text_obj, "value")
-            if isinstance(value, str):
-                return value
-        if isinstance(text_obj, dict):
-            value = text_obj.get("value") or text_obj.get("text")
-            if isinstance(value, str):
-                return value
-            if isinstance(value, list):
-                segments = [segment.get("text") for segment in value if isinstance(segment, dict)]
-                return "".join(filter(None, segments)) if segments else None
-        if isinstance(text_obj, list):
-            pieces: List[str] = []
-            for item in text_obj:
-                if isinstance(item, str):
-                    pieces.append(item)
-                elif isinstance(item, dict):
-                    piece = item.get("text") or item.get("value")
-                    if isinstance(piece, str):
-                        pieces.append(piece)
-            return "".join(pieces) if pieces else None
-        if hasattr(text_obj, "model_dump"):
-            try:
-                dumped = text_obj.model_dump()
-            except Exception:  # pragma: no cover - defensive
-                dumped = None
-            if dumped is not None:
-                return self._normalise_text_value(dumped)
-        return None
-
-    def _safe_model_dump(self, response: Any) -> Optional[Any]:
-        for attr in ("model_dump", "to_dict", "dict"):
-            method = getattr(response, attr, None)
-            if callable(method):
-                try:
-                    data = method()
-                except Exception:  # pragma: no cover - defensive
-                    continue
-                if data:
-                    return data
-        return None
-
-    def _locate_rewrite_payload(self, data: Any, depth: int = 0) -> Optional[str]:
-        if depth > 6:
-            return None
-        if isinstance(data, str):
-            stripped = data.strip()
-            if stripped.startswith("{") and stripped.endswith("}"):
-                return stripped
-            return None
-        if isinstance(data, dict):
-            if self._looks_like_rewrite_payload(data):
-                return json.dumps(data)
-            for value in data.values():
-                candidate = self._locate_rewrite_payload(value, depth + 1)
-                if candidate:
-                    return candidate
-        if isinstance(data, list):
-            for item in data:
-                candidate = self._locate_rewrite_payload(item, depth + 1)
-                if candidate:
-                    return candidate
-        return None
-
-    def _looks_like_rewrite_payload(self, data: Any) -> bool:
-        if not isinstance(data, dict):
-            return False
-        if "blocks" not in data:
-            return False
-        if not isinstance(data["blocks"], list):
-            return False
-        return any(key in data for key in ("meta_title", "meta_description"))
-
-    def _strip_json_fences(self, payload: str) -> str:
-        stripped = payload.strip()
-        if stripped.startswith("```"):
-            fence_match = re.search(r"```(?:json)?\s*(.*?)```", stripped, re.DOTALL)
-            if fence_match:
-                stripped = fence_match.group(1).strip()
-        if stripped and not stripped.startswith("{"):
-            brace_match = re.search(r"\{.*\}", stripped, re.DOTALL)
-            if brace_match:
-                stripped = brace_match.group(0).strip()
-        return stripped
-
-    def _extract_response_text(self, response: Any) -> str:
-        """Normalise the various OpenAI client payload shapes into a JSON string."""
-
-        output_text = getattr(response, "output_text", None)
-        if isinstance(output_text, str) and output_text.strip():
-            return output_text
-
-        parts: List[str] = []
-        for item in getattr(response, "output", []) or []:
-            for content_item in getattr(item, "content", []) or []:
-                text_value = self._coerce_content_text(content_item)
-                if text_value:
-                    parts.append(text_value)
-        if parts:
-            return "".join(parts)
-
-        structured = self._safe_model_dump(response)
-        if structured:
-            candidate = self._locate_rewrite_payload(structured)
-            if candidate:
-                return candidate
-
-        return ""
-
-    def _coerce_content_text(self, content_item: Any) -> Optional[str]:
-        content_type = getattr(content_item, "type", None)
-
-        if content_type in {"output_json", "json"}:
-            json_payload = getattr(content_item, "json", None)
-            if isinstance(json_payload, dict):
-                return json.dumps(json_payload)
-            if hasattr(json_payload, "model_dump"):
-                try:
-                    dumped = json_payload.model_dump()
-                except Exception:  # pragma: no cover - defensive
-                    dumped = None
-                if isinstance(dumped, dict):
-                    return json.dumps(dumped)
-
-        if content_type in {"output_text", "text", None}:
-            text_obj = getattr(content_item, "text", None)
-            normalised = self._normalise_text_value(text_obj)
-            if normalised:
-                return normalised
-
-        return None
-
-    def _normalise_text_value(self, text_obj: Any) -> Optional[str]:
-        if text_obj is None:
-            return None
-        if isinstance(text_obj, str):
-            return text_obj
-        if hasattr(text_obj, "value"):
-            value = getattr(text_obj, "value")
-            if isinstance(value, str):
-                return value
-        if isinstance(text_obj, dict):
-            value = text_obj.get("value") or text_obj.get("text")
-            if isinstance(value, str):
-                return value
-            if isinstance(value, list):
-                segments = [segment.get("text") for segment in value if isinstance(segment, dict)]
-                return "".join(filter(None, segments)) if segments else None
-        if isinstance(text_obj, list):
-            pieces: List[str] = []
-            for item in text_obj:
-                if isinstance(item, str):
-                    pieces.append(item)
-                elif isinstance(item, dict):
-                    piece = item.get("text") or item.get("value")
-                    if isinstance(piece, str):
-                        pieces.append(piece)
-            return "".join(pieces) if pieces else None
-        if hasattr(text_obj, "model_dump"):
-            try:
-                dumped = text_obj.model_dump()
-            except Exception:  # pragma: no cover - defensive
-                dumped = None
-            if dumped is not None:
-                return self._normalise_text_value(dumped)
-        return None
-
-    def _safe_model_dump(self, response: Any) -> Optional[Any]:
-        for attr in ("model_dump", "to_dict", "dict"):
-            method = getattr(response, attr, None)
-            if callable(method):
-                try:
-                    data = method()
-                except Exception:  # pragma: no cover - defensive
-                    continue
-                if data:
-                    return data
-        return None
-
-    def _locate_rewrite_payload(self, data: Any, depth: int = 0) -> Optional[str]:
-        if depth > 6:
-            return None
-        if isinstance(data, str):
-            stripped = data.strip()
-            if stripped.startswith("{") and stripped.endswith("}"):
-                return stripped
-            return None
-        if isinstance(data, dict):
-            if self._looks_like_rewrite_payload(data):
-                return json.dumps(data)
-            for value in data.values():
-                candidate = self._locate_rewrite_payload(value, depth + 1)
-                if candidate:
-                    return candidate
-        if isinstance(data, list):
-            for item in data:
-                candidate = self._locate_rewrite_payload(item, depth + 1)
-                if candidate:
-                    return candidate
-        return None
-
-    def _looks_like_rewrite_payload(self, data: Any) -> bool:
-        if not isinstance(data, dict):
-            return False
-        if "blocks" not in data:
-            return False
-        if not isinstance(data["blocks"], list):
-            return False
-        return any(key in data for key in ("meta_title", "meta_description"))
-
-    def _strip_json_fences(self, payload: str) -> str:
-        stripped = payload.strip()
-        if stripped.startswith("```"):
-            fence_match = re.search(r"```(?:json)?\s*(.*?)```", stripped, re.DOTALL)
-            if fence_match:
-                stripped = fence_match.group(1).strip()
-        if stripped and not stripped.startswith("{"):
-            brace_match = re.search(r"\{.*\}", stripped, re.DOTALL)
-            if brace_match:
-                stripped = brace_match.group(0).strip()
-        return stripped
-
 
     def _fallback_bundle(self, domain: str, content: ContentExtract) -> ContentBundle:
         """Provide a deterministic rewrite when the LLM is unavailable."""
@@ -787,7 +485,7 @@ class RewriteAgent(Agent[RewriteInput, ContentBundle]):
 
         meta_title = f"{site_label} – Updated Website Experience"
         meta_description = (
-            f"Fallback content for {site_label}. Review and replace once OpenAI rewriting succeeds."
+            f"Fallback content for {site_label}. Review and replace once automated rewriting succeeds."
         )
         return ContentBundle(
             blocks=blocks,
