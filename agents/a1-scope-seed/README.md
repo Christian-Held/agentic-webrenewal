@@ -152,4 +152,17 @@ Das Ergebnis ist ein **ScopePlan**, ein formalisiertes JSON-Dokument, das die Ba
 
 📄 **Fazit**:
 A1 ist ein schlanker, aber kritischer Microservice. Er definiert die Spielwiese für alle weiteren Agenten. Ob in **Python (aiohttp, lxml)** oder **Java (Spring Boot, Jsoup)**, die Logik bleibt dieselbe: **URL normalisieren → robots/sitemap evaluieren → Include/Exclude setzen → ScopePlan.json persistieren**.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Normalisiert Domains, lädt robots.txt und extrahiert Sitemap-Links.
+- Fällt robust auf Basis-Domain zurück, wenn robots.txt nicht erreichbar ist.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Sitemap-Parsing in Tiefe (inkl. Prioritäten, `lastmod`).
+- Zusätzliche Seed-Quellen wie historische Crawls oder Kunden-Uploads.
 

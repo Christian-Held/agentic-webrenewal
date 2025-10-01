@@ -18,7 +18,7 @@ except ModuleNotFoundError:  # pragma: no cover
     def flesch_reading_ease(text: str) -> float:
         return 0.0
 
-from .base import Agent
+from ..common import Agent
 from ..models import ContentExtract, ContentSection, CrawlResult
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from .base import Agent
+from ..common import Agent
 from ..models import CrawlResult, Issue, SecurityReport
 
 

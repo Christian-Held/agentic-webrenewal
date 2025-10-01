@@ -3,23 +3,32 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Set
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from .base import Agent
+from ..common import Agent
 from ..models import BuildArtifact, ContentBlock, ContentBundle, NavModel, NavigationItem, ThemeTokens
 from ..storage import SANDBOX_DIR, list_files
 
 
-def _slugify(block: ContentBlock, index: int) -> str:
+def _slugify(block: ContentBlock, index: int, existing: Set[str]) -> str:
     """Generate a filesystem-friendly slug for a content block."""
 
     import re
 
-    title = block.title or f"section-{index}"
-    slug = re.sub(r"[^a-zA-Z0-9]+", "-", title.lower()).strip("-")
-    return slug or f"section-{index}"
+    base_title = block.title or f"section-{index}"
+    base_slug = re.sub(r"[^a-zA-Z0-9]+", "-", base_title.lower()).strip("-")
+    if not base_slug:
+        base_slug = f"section-{index}"
+
+    candidate = base_slug
+    suffix = 2
+    while candidate in existing:
+        candidate = f"{base_slug}-{suffix}"
+        suffix += 1
+
+    return candidate
 
 
 def _merge_navigation(nav: NavModel, blocks: Iterable[tuple[ContentBlock, str]]) -> List[NavigationItem]:
@@ -38,7 +47,7 @@ def _merge_navigation(nav: NavModel, blocks: Iterable[tuple[ContentBlock, str]])
 
     return existing
 
-_TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
+_TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "templates"
 
 
 class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtifact]):
@@ -59,8 +68,10 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
         output_dir.mkdir(parents=True, exist_ok=True)
 
         page_entries: list[tuple[ContentBlock, str]] = []
+        used_slugs: Set[str] = set()
         for index, block in enumerate(content.blocks, start=1):
-            slug = _slugify(block, index)
+            slug = _slugify(block, index, used_slugs)
+            used_slugs.add(slug)
             filename = f"{slug}.html"
             page_entries.append((block, filename))
 
