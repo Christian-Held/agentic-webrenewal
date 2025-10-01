@@ -69,18 +69,24 @@
 {% if navigation %}
   {% for item in navigation recursive %}
     {% set lower = item.label|lower %}
-        {% for keyword in legal_keywords %}
+    {% set is_legal = false %}
+    {% for keyword in legal_keywords %}
       {% if keyword in lower %}
-        {% set legal_ns.items = legal_ns.items + [item] %}
-        {% break %}
+        {% set is_legal = true %}
       {% endif %}
     {% endfor %}
+    {% if is_legal and item.href %}
+      {% set legal_ns.items = legal_ns.items + [item] %}
+    {% endif %}
+    {% set is_social = false %}
     {% for keyword in social_keywords %}
       {% if keyword in lower %}
-        {% set social_ns.items = social_ns.items + [{'label': item.label, 'href': item.href}] %}
-        {% break %}
+        {% set is_social = true %}
       {% endif %}
     {% endfor %}
+    {% if is_social and item.href %}
+      {% set social_ns.items = social_ns.items + [{'label': item.label, 'href': item.href}] %}
+    {% endif %}
     {% if item.children %}
       {{ loop(item.children) }}
     {% endif %}
@@ -91,12 +97,15 @@
   {% set value = pair[1] %}
   {% if value is string %}
     {% set value_lower = value|lower %}
+    {% set matches_social = false %}
     {% for keyword in social_keywords %}
       {% if keyword in value_lower %}
-        {% set social_ns.items = social_ns.items + [{'label': label, 'href': value}] %}
-        {% break %}
+        {% set matches_social = true %}
       {% endif %}
     {% endfor %}
+    {% if matches_social %}
+      {% set social_ns.items = social_ns.items + [{'label': label, 'href': value}] %}
+    {% endif %}
   {% endif %}
 {% endfor %}
 <footer class="site-footer mt-auto py-5">
