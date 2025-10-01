@@ -64,7 +64,6 @@ _SECTION_PARTIALS: Mapping[str, str] = {
     "text": "sections/text.jinja",
 }
 
-
 _FRAMEWORK_PRESETS: Mapping[str, Dict[str, object]] = {
     "vanilla": {
         "name": "vanilla",
@@ -117,6 +116,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
         )
         self._env.globals["FRAMEWORK_PRESETS"] = _FRAMEWORK_PRESETS
         self._env.globals["SECTION_PARTIALS"] = _SECTION_PARTIALS
+
 
     def run(self, data: tuple[ContentBundle, ThemeTokens, NavModel]) -> BuildArtifact:
         content, theme, nav = data
