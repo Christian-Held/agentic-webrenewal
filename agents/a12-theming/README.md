@@ -145,3 +145,17 @@ Beispiel:
 📄 **Fazit**:
 A12 ist der **Design-Orchestrator**. Er transformiert abstrakte Branding-Vorgaben + RenewalPlan in **standardisierte Design Tokens**.
 Damit kann A13 (Builder) Websites konsistent und modern rendern – egal ob als Minimal-Update oder Full Redesign.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Gibt konsistente Standard-Design-Tokens (Farben, Typografie, Layout) zurück.
+- Kopplung an RenewalPlan bereits vorbereitet.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- LLM-gestützte Theme-Generierung nach Branding-Briefs.
+- Export in CSS/Design-Systeme (Figma, Tokens Studio).
+

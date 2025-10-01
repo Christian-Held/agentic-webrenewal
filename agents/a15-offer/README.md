@@ -153,3 +153,17 @@ Beispiel:
 📄 **Fazit**:
 A15 ist der **Business-Connector**. Er übersetzt technische Verbesserungen in einen **greifbaren Mehrwert** mit Preis, Nutzen und Timeline.
 Ohne ihn bleibt der Prozess rein technisch – mit ihm wird er zu einem **verkaufsfähigen Produkt**.
+---
+
+## Aktueller Implementierungsstand
+
+**Bereits funktionsfähig**
+
+- Erstellt Angebotstext aus Plan-Aktionen und Diff-Zusammenfassung inklusive Richtpreis.
+- Verwendet Domain-Namen als kundenfreundliches Label.
+
+**Offene Schritte bis zur Production-Readiness**
+
+- Mehrseitige Angebots-PDFs, Branding-Templates und Versionierung.
+- Mehrsprachige Angebote sowie CRM-Schnittstellen.
+
