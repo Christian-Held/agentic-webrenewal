@@ -8,11 +8,13 @@ from typing import Dict, Iterable, List, Mapping, Set
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .base import Agent
+from .navigation_builder import NavigationBuilderAgent
 from ..models import (
     BuildArtifact,
     ContentBlock,
     ContentBundle,
     NavModel,
+    NavigationBundle,
     NavigationItem,
     ThemeTokens,
 )
@@ -121,14 +123,25 @@ def _create_framework_meta(css_framework: str, style_hints: str) -> Dict[str, ob
     return preset
 
 
-class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtifact]):
+class BuilderAgent(
+    Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtifact]
+):
     """Assemble a static site using Jinja2 templates."""
 
-    def __init__(self, css_framework: str = "bootstrap", *, style_hints: str = "") -> None:
+    def __init__(
+        self,
+        css_framework: str = "bootstrap",
+        *,
+        style_hints: str = "",
+        navigation_builder: NavigationBuilderAgent | None = None,
+    ) -> None:
         super().__init__(name="A13.Builder")
         self._framework = css_framework
         self._style_hints = style_hints
         self._framework_meta = _create_framework_meta(css_framework, style_hints)
+        self._navigation_builder = navigation_builder or NavigationBuilderAgent(
+            css_framework=css_framework
+        )
         self._env = Environment(
             loader=FileSystemLoader(str(_TEMPLATE_DIR)),
             autoescape=select_autoescape(["html", "xml"]),
@@ -152,6 +165,22 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
             page_entries.append((block, filename))
 
         augmented_navigation = _merge_navigation(nav, page_entries)
+        header_title = (
+            content.meta_title
+            or (content.blocks[0].title if content.blocks else None)
+            or "Renewed Website"
+        )
+        nav_bundle: NavigationBundle = self._navigation_builder.run(
+            (
+                NavModel(items=augmented_navigation),
+                theme,
+                {
+                    "brand_label": header_title,
+                    "home_href": "index.html",
+                    "generated_pages": [filename for _, filename in page_entries],
+                },
+            )
+        )
         generated_pages = [
             {"title": block.title or filename, "href": filename}
             for block, filename in page_entries
@@ -164,6 +193,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
             content=content,
             theme=theme,
             navigation=augmented_navigation,
+            navigation_bundle=nav_bundle,
             generated_pages=generated_pages,
             css_variables=css_variables,
             framework=self._framework_meta,
@@ -178,6 +208,7 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
                 block=block,
                 theme=theme,
                 navigation=augmented_navigation,
+                navigation_bundle=nav_bundle,
                 home_href="index.html",
                 meta_title=(block.title or content.meta_title or "Renewed Page"),
                 meta_description=(content.meta_description or block.body or ""),
@@ -190,7 +221,11 @@ class BuilderAgent(Agent[tuple[ContentBundle, ThemeTokens, NavModel], BuildArtif
             (output_dir / filename).write_text(page_html, encoding="utf-8")
 
         files = list_files(output_dir)
-        return BuildArtifact(output_dir=str(output_dir), files=files)
+        return BuildArtifact(
+            output_dir=str(output_dir),
+            files=files,
+            navigation_bundle=nav_bundle,
+        )
 
 
 __all__ = ["BuilderAgent"]

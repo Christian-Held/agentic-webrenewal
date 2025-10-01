@@ -30,6 +30,8 @@ def test_builder_agent_renders_pages(
 
     assert (Path(artifact.output_dir) / "index.html").exists()
     assert any(file.endswith(".html") for file in artifact.files)
+    assert artifact.navigation_bundle is not None
+    assert "nav" in artifact.navigation_bundle.html.lower()
 
 
 def test_builder_agent_generates_unique_slugs(builder_agent: BuilderAgent, sample_theme_tokens: ThemeTokens, sample_nav_model: NavModel) -> None:
@@ -50,6 +52,7 @@ def test_builder_agent_generates_unique_slugs(builder_agent: BuilderAgent, sampl
     filenames = [Path(path).name for path in artifact.files if path.endswith(".html")]
     page_files = [name for name in filenames if name != "index.html"]
     assert len(set(page_files)) == len(page_files)
+    assert artifact.navigation_bundle is not None
 
 
 def test_builder_agent_supports_custom_framework() -> None:

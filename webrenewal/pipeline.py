@@ -17,6 +17,7 @@ from .agents import (
     MemoryAgent,
     MediaAgent,
     NavigationAgent,
+    NavigationBuilderAgent,
     OfferAgent,
     PlanProposalAgent,
     ReadabilityAgent,
@@ -97,6 +98,10 @@ class WebRenewalPipeline:
         self.security = SecurityAgent()
         self.media = MediaAgent()
         self.navigation = NavigationAgent()
+        self.navigation_builder = NavigationBuilderAgent(
+            css_framework=self._css_framework,
+            navigation_config=self._renewal_config.navigation_settings(),
+        )
         self.plan = PlanProposalAgent()
         self.rewrite = RewriteAgent(
             model=self._llm_model,
@@ -110,6 +115,7 @@ class WebRenewalPipeline:
         self.builder = BuilderAgent(
             css_framework=self._css_framework,
             style_hints=self._theme_style,
+            navigation_builder=self.navigation_builder,
         )
         self.comparator = ComparatorAgent(
             renewal_mode=self._renewal_mode,
@@ -233,6 +239,11 @@ class WebRenewalPipeline:
                 stage="build",
             )
             self._record_artifact("build.json", write_json(build_artifact, "build.json"))
+            if build_artifact.navigation_bundle:
+                self._record_artifact(
+                    "navigation_bundle.json",
+                    write_json(build_artifact.navigation_bundle, "navigation_bundle.json"),
+                )
 
         if run_design and build_artifact:
             preview_index: PreviewIndex = self._run_agent(

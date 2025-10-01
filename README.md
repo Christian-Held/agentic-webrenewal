@@ -174,6 +174,12 @@ Neben Provider und Modell können nun auch **Renewal-Mode**, **CSS-Framework** u
 | `--renewal-mode {full,text-only,seo-only,design-only}` | Steuert, welche Agenten laufen: `full` aktiviert alle Schritte, `text-only` führt nur das Rewrite (A11) aus, `design-only` überspringt den Rewrite und fokussiert auf Theming/Build, `seo-only` liefert ausschließlich SEO/Metadata-Optimierungen. |
 | `--css-framework <name>` | Beliebiger Framework-/Library-Name. Bekannte Werte wie `bootstrap`, `tailwind` oder `vanilla` verwenden hinterlegte Templates, unbekannte Werte werden als Custom-Framework in Theming/Builder weitergereicht. |
 | `--theme-style "…"` | Komma-separierte Stilhinweise (Farben, Formen, Effekte, Typografie). Diese Hinweise landen direkt beim Theming- und Builder-Agenten. |
+| `--navigation-style {horizontal,vertical,mega-menu}` | Steuerung des Layouts für die generierte Navigation. |
+| `--navigation-location {top-left,top-right,top-center,side-left,side-right,footer}` | Position des Navigationscontainers (Header, Sidebar oder Footer). |
+| `--navigation-dropdown {none,hover,click}` | Dropdown-Verhalten für mehrstufige Menüs. |
+| `--navigation-dropdown-default {open,closed}` | Startzustand des Burger-/Dropdown-Menüs. |
+| `--navigation-config '{"location":"top-right","dropdown":"hover","sticky":true}'` | Freiform-JSON, das zusätzliche Navigationseigenschaften (z. B. `sticky`, `brand_label`, `mega_columns`) überschreibt. |
+| `--navigation-logo <url>` | Optionales Logo, das in der Navigation eingeblendet wird. |
 
 Beispiele für den CLI-Aufruf (Modell optional, ansonsten greift der Default pro Provider):
 
@@ -198,6 +204,48 @@ python renewal.py https://www.physioheld.ch --llm groq --llm-model llama3-70b-81
 
 # Text-Only Optimierung
 python renewal.py https://www.physioheld.ch --renewal-mode text-only --theme-style "klar, sachlich"
+
+# Navigation konfigurieren (Bootstrap, Top-Right)
+python renewal.py https://www.physioheld.ch \
+  --css-framework bootstrap \
+  --navigation-style horizontal \
+  --navigation-location top-right \
+  --navigation-dropdown hover \
+  --navigation-dropdown-default closed
+
+### Navigation Builder & Advanced Konfiguration
+
+Der neue `NavigationBuilderAgent` übernimmt das vom A9-Agent gelieferten `NavModel` und erzeugt ein vollständiges `NavigationBundle` mit HTML-, CSS- und JS-Snippets. Die Ausgabe landet als `navigation_bundle.json` im `sandbox/`-Ordner und wird automatisch vom Builder eingebunden.
+
+* **Framework aware**: Für `bootstrap`, `tailwind` und `vanilla` werden passende Markups generiert (Dropdowns, Mega-Menüs, Hamburger-Menü unter 768 px).
+* **Positionierung**: `top-left`, `top-right`, `side-left`, `footer` u. v. m. steuern Sticky/Off-Canvas-Verhalten.
+* **Dropdown-Steuerung**: `none`, `hover`, `click` inkl. Default-State (`open`/`closed`).
+* **Branding**: Logo via `--navigation-logo` oder `navigation_config.logo` plus automatisch normalisierte Labels.
+
+Die Struktur des Bundles:
+
+```json
+{
+  "location": "top-right",
+  "style": "horizontal",
+  "dropdown": "hover",
+  "dropdown_default": "closed",
+  "items": [
+    {"label": "Home", "href": "/", "children": []},
+    {"label": "Services", "href": "/services", "children": []}
+  ],
+  "sticky": true,
+  "logo": "https://cdn.example.com/logo.svg"
+}
+```
+
+Zusätzliche Optionen können über `--navigation-config` gesetzt werden. Beispiel:
+
+```bash
+--navigation-config '{"sticky": true, "brand_label": "Physioheld", "mega_columns": 3}'
+```
+
+Die Schlüssel `style`, `location`, `dropdown` und `dropdown_default` aus der CLI haben Vorrang, können aber im JSON erneut überschrieben werden.
 
 # Design-Refresh ohne Copy-Änderungen
 python renewal.py https://www.physioheld.ch --renewal-mode design-only --css-framework material --theme-style "modern, blue/white, rounded buttons, shadow"

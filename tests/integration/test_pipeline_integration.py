@@ -124,6 +124,7 @@ def test_pipeline_creates_expected_artifacts(
         "content_new.json",
         "theme.json",
         "build.json",
+        "navigation_bundle.json",
         "preview.json",
         "offer.json",
         "memory.json",
