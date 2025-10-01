@@ -14,25 +14,32 @@ class _DummyOpenAI:
 
 
 class _LegacyResponses:
-    def __init__(self, payload):
-        self._payload = payload
-        self.calls = []
+    def __init__(self, payloads):
+        self._payloads = payloads
+        self.calls: list[dict[str, object]] = []
+        self._successes = 0
 
-    def create(self, **kwargs):  # pragma: no cover - behaviour tested indirectly
+    async def create(self, **kwargs):  # pragma: no cover - behaviour tested indirectly
         self.calls.append(kwargs)
         if len(self.calls) == 1 and "response_format" in kwargs:
             raise TypeError("create() got an unexpected keyword argument 'response_format'")
 
-        return SimpleNamespace(output_text=json.dumps(self._payload))
+        payload = self._payloads[self._successes]
+        self._successes += 1
+        return SimpleNamespace(output_text=json.dumps(payload))
 
 
 class _LegacyClient:
-    def __init__(self, payload):
-        self.responses = _LegacyResponses(payload)
+    def __init__(self, payloads):
+        self.responses = _LegacyResponses(payloads)
 
 
 if "openai" not in sys.modules:
-    sys.modules["openai"] = SimpleNamespace(OpenAI=_DummyOpenAI, OpenAIError=_DummyOpenAIError)
+    sys.modules["openai"] = SimpleNamespace(
+        OpenAI=_DummyOpenAI,
+        AsyncOpenAI=_DummyOpenAI,
+        OpenAIError=_DummyOpenAIError,
+    )
 
 from webrenewal.agents.rewrite import RewriteAgent
 from webrenewal.models import (
@@ -99,25 +106,34 @@ class RewriteAgentTests(unittest.TestCase):
         self.assertIs(captured.get("plan"), self.plan)
 
     def test_retry_without_response_format_when_unsupported(self) -> None:
-        payload = {
-            "meta_title": "Example Site",
-            "meta_description": "Description",
-            "blocks": [
-                {"title": "Welcome", "body": "New welcome copy."},
-                {"title": "Services", "body": "Updated services details."},
-            ],
-        }
+        payloads = [
+            {
+                "meta_title": "Example Site",
+                "meta_description": "Description",
+                "blocks": [
+                    {"title": "Welcome", "body": "New welcome copy."},
+                ],
+            },
+            {
+                "meta_title": None,
+                "meta_description": None,
+                "blocks": [
+                    {"title": "Services", "body": "Updated services details."},
+                ],
+            },
+        ]
 
-        agent = RewriteAgent()
-        legacy_client = _LegacyClient(payload)
+        agent = RewriteAgent(max_parallel_requests=2)
+        legacy_client = _LegacyClient(payloads)
         agent._get_client = lambda: legacy_client  # type: ignore[assignment]
 
         bundle = agent.run(("example.com", self.content, self.plan))
 
         self.assertFalse(bundle.fallback_used)
-        self.assertEqual(len(legacy_client.responses.calls), 2)
+        self.assertEqual(len(legacy_client.responses.calls), 3)
         self.assertIn("response_format", legacy_client.responses.calls[0])
         self.assertNotIn("response_format", legacy_client.responses.calls[1])
+        self.assertIn("response_format", legacy_client.responses.calls[2])
         self.assertEqual(bundle.blocks[0].body, "New welcome copy.")
 
 

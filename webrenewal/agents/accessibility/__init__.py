@@ -6,8 +6,8 @@ from typing import List
 
 from bs4 import BeautifulSoup
 
-from .base import Agent
-from ..models import A11yReport, CrawlResult, Issue
+from ..common import Agent
+from ...models import A11yReport, CrawlResult, Issue
 
 
 class AccessibilityAgent(Agent[CrawlResult, A11yReport]):

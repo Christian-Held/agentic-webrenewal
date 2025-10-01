@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .base import Agent
-from ..models import RenewalPlan, ThemeTokens
+from ..common import Agent
+from ...models import RenewalPlan, ThemeTokens
 
 
 class ThemingAgent(Agent[RenewalPlan, ThemeTokens]):
