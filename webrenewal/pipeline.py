@@ -53,6 +53,8 @@ class WebRenewalPipeline:
         self,
         logger: Optional[logging.Logger] = None,
         config: Optional[PipelineConfig] = None,
+        *,
+        css_framework: str = "vanilla",
     ) -> None:
         self.logger = logger or logging.getLogger("pipeline")
         self.config = config or load_pipeline_config()
@@ -71,7 +73,7 @@ class WebRenewalPipeline:
         self.theming = ThemingAgent(
             design_directives=self.config.design_directives
         )
-        self.builder = BuilderAgent()
+        self.builder = BuilderAgent(css_framework=css_framework)
         self.comparator = ComparatorAgent()
         self.offer = OfferAgent()
         self.memory = MemoryAgent()
@@ -299,9 +301,10 @@ def run_pipeline(
     log_level: int = logging.INFO,
     *,
     config: Optional[PipelineConfig] = None,
+    css_framework: str = "vanilla",
 ) -> None:
     configure_logging(level=log_level)
-    pipeline = WebRenewalPipeline(config=config)
+    pipeline = WebRenewalPipeline(config=config, css_framework=css_framework)
     pipeline.execute(domain)
 
 
