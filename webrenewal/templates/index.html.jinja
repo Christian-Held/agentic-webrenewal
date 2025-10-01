@@ -3,8 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    {% if content.meta_title %}<title>{{ content.meta_title }}</title>{% endif %}
-    {% if content.meta_description %}<meta name="description" content="{{ content.meta_description }}" />{% endif %}
+    {% if content.meta_title %}<title>{{ content.meta_title }}</title>{% else %}
+    <title>Renewed Website</title>
+    {% endif %}
+    {% if content.meta_description %}
+    <meta name="description" content="{{ content.meta_description }}" />
+    {% endif %}
+    {% for href in framework.css_links %}
+    <link rel="stylesheet" href="{{ href }}" />
+    {% endfor %}
     <style>
       :root {
       {% for name, value in css_variables.items() %}
@@ -17,101 +24,145 @@
         font-size: var(--font-base-size);
         line-height: var(--font-line-height);
         margin: 0;
-        background: var(--color-surface);
+        min-height: 100vh;
+        background: linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--color-surface-alt) 90%, transparent),
+            var(--color-surface)
+          )
+          fixed;
         color: var(--color-text);
       }
 
-      header {
-        background: var(--slot-hero-background);
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background: color-mix(in srgb, var(--slot-hero-background) 92%, rgba(255, 255, 255, 0.08));
         color: var(--slot-hero-text);
-        padding: var(--space-xl) var(--space-md);
-        text-align: center;
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid color-mix(in srgb, var(--slot-hero-background) 70%, transparent);
         box-shadow: var(--shadow-flat);
       }
 
-      header h1 {
-        margin: 0 0 var(--space-sm);
-        font-family: var(--font-heading-family);
-        font-weight: var(--font-weight-heading);
-        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.5);
-      }
-
-      header p {
+      .site-header__inner {
+        max-width: min(100%, calc(var(--breakpoint-xl) + var(--space-xl)));
         margin: 0 auto;
-        max-width: 65ch;
-        opacity: 0.85;
+        padding: var(--space-lg) var(--space-md);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-md);
       }
 
-      nav {
-        margin-top: var(--space-lg);
+      .site-title {
+        margin: 0;
+        font-family: var(--font-heading-family);
+        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.6);
+        font-weight: var(--font-weight-heading);
+      }
+
+      .site-subtitle {
+        margin: 0;
+        max-width: 65ch;
+        color: color-mix(in srgb, var(--slot-hero-text) 80%, #000000 10%);
+      }
+
+      .site-nav {
         display: flex;
         justify-content: center;
       }
 
-      nav ul {
+      .site-nav__list {
         list-style: none;
         display: flex;
-        gap: var(--space-md);
-        justify-content: center;
-        padding: var(--space-xs) var(--space-sm);
+        align-items: center;
+        gap: var(--space-sm);
         margin: 0;
-        background: var(--slot-nav-background);
+        padding: var(--space-xs) var(--space-sm);
+        background: color-mix(in srgb, var(--slot-nav-background) 90%, transparent);
         border-radius: var(--radius-pill);
         box-shadow: var(--shadow-flat);
       }
 
-      nav a {
+      .site-nav__item--placeholder {
+        opacity: 0.65;
+        font-style: italic;
+      }
+
+      .site-nav__link {
         color: var(--slot-nav-text);
         text-decoration: none;
         font-weight: 600;
         padding: var(--space-xs) var(--space-sm);
         border-radius: var(--radius-pill);
-        transition: color 0.2s ease, background 0.2s ease;
+        transition: all 0.2s ease;
       }
 
-      nav a:hover,
-      nav a:focus-visible {
+      .site-nav__link:hover,
+      .site-nav__link:focus-visible {
         color: var(--slot-nav-hover);
-        background: rgba(255, 255, 255, 0.08);
+        background: color-mix(in srgb, var(--slot-nav-background) 70%, transparent);
         outline: none;
       }
 
       main {
-        max-width: min(100%, var(--breakpoint-xl));
+        max-width: min(100%, calc(var(--breakpoint-xl) + var(--space-xl)));
         margin: 0 auto;
-        padding: var(--space-xl) var(--space-md);
+        padding: calc(var(--space-xl) + var(--space-lg)) var(--space-md) var(--space-xl);
+        display: grid;
+        gap: var(--space-xl);
+      }
+
+      .content-grid {
         display: grid;
         gap: var(--space-lg);
       }
 
-      section {
-        background: var(--color-surface-alt);
+      .content-card {
+        background: color-mix(in srgb, var(--color-surface-alt) 96%, transparent);
         border-radius: var(--radius-lg);
-        padding: var(--space-lg);
+        padding: clamp(var(--space-md), 2vw, var(--space-xl));
         border: 1px solid var(--color-border);
         box-shadow: var(--shadow-raised);
+        display: grid;
+        gap: var(--space-sm);
       }
 
-      section.fallback-block {
+      .content-card--fallback {
         border: 2px dashed var(--color-accent);
       }
 
-      h2 {
-        margin: 0 0 var(--space-sm);
+      .content-card h2 {
+        margin: 0;
         font-family: var(--font-heading-family);
-        font-weight: var(--font-weight-heading);
+        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.15);
       }
 
-      section p {
+      .content-card p {
         margin: 0;
         white-space: pre-line;
       }
 
       .fallback-banner {
         border-radius: var(--radius-md);
-        padding: var(--space-md);
+        padding: clamp(var(--space-md), 2vw, var(--space-lg));
         border-left: 4px solid var(--color-accent);
-        background: var(--color-surface-alt);
+        background: color-mix(in srgb, var(--color-surface-alt) 92%, transparent);
+        color: var(--color-text);
+        box-shadow: var(--shadow-flat);
+      }
+
+      .generated-section {
+        background: color-mix(in srgb, var(--color-surface-alt) 96%, transparent);
+        border-radius: var(--radius-lg);
+        padding: clamp(var(--space-md), 2vw, var(--space-xl));
+        border: 1px solid var(--color-border);
+        box-shadow: var(--shadow-raised);
+      }
+
+      .generated-section h2 {
+        margin-top: 0;
+        font-family: var(--font-heading-family);
       }
 
       .generated-pages {
@@ -124,64 +175,89 @@
 
       .generated-pages a {
         color: var(--color-primary);
-        text-decoration: none;
         font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-xs);
       }
 
-      footer {
-        text-align: center;
-        padding: var(--space-lg) var(--space-md);
-        background: var(--slot-footer-background);
+      .generated-pages a::after {
+        content: "→";
+        font-size: 0.875em;
+        opacity: 0.7;
+        transition: transform 0.2s ease;
+      }
+
+      .generated-pages a:hover::after,
+      .generated-pages a:focus-visible::after {
+        transform: translateX(4px);
+      }
+
+      .site-footer {
+        margin-top: auto;
+        background: color-mix(in srgb, var(--slot-footer-background) 95%, transparent);
         color: var(--slot-footer-text);
-        margin-top: var(--space-xl);
+        padding: var(--space-xl) var(--space-md);
+        text-align: center;
       }
 
-      footer p {
+      .site-footer__inner {
+        max-width: min(100%, calc(var(--breakpoint-xl) + var(--space-xl)));
+        margin: 0 auto;
+      }
+
+      .site-footer p {
         margin: 0;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
       }
 
-      @media (max-width: var(--breakpoint-md)) {
-        nav ul {
-          flex-wrap: wrap;
-        }
-
-        header {
+      @media (max-width: var(--breakpoint-lg)) {
+        .site-header__inner {
           padding: var(--space-lg) var(--space-sm);
         }
 
         main {
-          padding: var(--space-lg) var(--space-sm);
+          padding: var(--space-xl) var(--space-sm) var(--space-xl);
+        }
+      }
+
+      @media (max-width: var(--breakpoint-md)) {
+        .site-nav__list {
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
+        .site-title {
+          font-size: calc(var(--font-base-size) * var(--font-scale) * 1.3);
+        }
+      }
+
+      @media (max-width: var(--breakpoint-sm)) {
+        .site-nav__list {
+          width: 100%;
+          justify-content: space-between;
         }
       }
     </style>
   </head>
-  <body>
-    <header>
-      <h1>{{ content.meta_title or "Renewed Website" }}</h1>
-      <p>{{ content.meta_description }}</p>
-      <nav>
-        <ul>
-          <li><a href="index.html">Start</a></li>
-          {% for item in navigation %}
-          <li><a href="{{ item.href }}">{{ item.label }}</a></li>
-          {% endfor %}
-        </ul>
-      </nav>
-    </header>
+  <body class="{{ framework.body_class }}">
+    {% include "_header.jinja" with header_title=(content.meta_title or 'Renewed Website') header_subtitle=content.meta_description home_href='index.html' %}
     <main>
       {% if content.fallback_used %}
       <div class="fallback-banner">
         Automatisches LLM-Upgrade war nicht möglich. Bitte Inhalte prüfen und nach einer erfolgreichen OpenAI-Ausführung aktualisieren.
       </div>
       {% endif %}
-      {% for block in content.blocks %}
-      <section class="{{ 'fallback-block' if content.fallback_used else '' }}">
-        <h2>{{ block.title }}</h2>
-        <p>{{ block.body }}</p>
-      </section>
-      {% endfor %}
-      <section>
+      <div class="content-grid">
+        {% for block in content.blocks %}
+        <section class="content-card {{ 'content-card--fallback' if content.fallback_used else '' }}">
+          <h2>{{ block.title }}</h2>
+          <p>{{ block.body }}</p>
+        </section>
+        {% endfor %}
+      </div>
+      <section class="generated-section" aria-label="Weitere Seiten">
         <h2>Weitere Seiten</h2>
         <ul class="generated-pages">
           {% for page in generated_pages %}
@@ -190,8 +266,6 @@
         </ul>
       </section>
     </main>
-    <footer>
-      <p>Generated by Agentic WebRenewal</p>
-    </footer>
+    {% include "_footer.jinja" %}
   </body>
 </html>

@@ -4,6 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{ meta_title }}</title>
+    {% for href in framework.css_links %}
+    <link rel="stylesheet" href="{{ href }}" />
+    {% endfor %}
     <style>
       :root {
       {% for name, value in css_variables.items() %}
@@ -16,70 +19,99 @@
         font-size: var(--font-base-size);
         line-height: var(--font-line-height);
         margin: 0;
-        background: var(--color-surface);
+        min-height: 100vh;
+        background: linear-gradient(
+            160deg,
+            color-mix(in srgb, var(--color-surface-alt) 88%, transparent),
+            var(--color-surface)
+          )
+          fixed;
         color: var(--color-text);
       }
 
-      header {
-        background: var(--slot-hero-background);
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background: color-mix(in srgb, var(--slot-hero-background) 92%, rgba(255, 255, 255, 0.08));
         color: var(--slot-hero-text);
-        padding: var(--space-xl) var(--space-md);
-        text-align: center;
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid color-mix(in srgb, var(--slot-hero-background) 70%, transparent);
         box-shadow: var(--shadow-flat);
       }
 
-      header h1 {
-        margin: 0 0 var(--space-sm);
-        font-family: var(--font-heading-family);
-        font-weight: var(--font-weight-heading);
-        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.25);
+      .site-header__inner {
+        max-width: min(100%, calc(var(--breakpoint-lg) + var(--space-xl)));
+        margin: 0 auto;
+        padding: var(--space-lg) var(--space-md);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-md);
       }
 
-      nav ul {
+      .site-title {
+        margin: 0;
+        font-family: var(--font-heading-family);
+        font-size: calc(var(--font-base-size) * var(--font-scale) * 1.4);
+        font-weight: var(--font-weight-heading);
+      }
+
+      .site-subtitle {
+        margin: 0;
+        max-width: 65ch;
+        color: color-mix(in srgb, var(--slot-hero-text) 80%, #000000 10%);
+      }
+
+      .site-nav {
+        display: flex;
+        justify-content: center;
+      }
+
+      .site-nav__list {
         list-style: none;
         display: flex;
+        align-items: center;
         gap: var(--space-sm);
-        justify-content: center;
-        padding: var(--space-xs) var(--space-sm);
         margin: 0;
-        flex-wrap: wrap;
-        background: var(--slot-nav-background);
+        padding: var(--space-xs) var(--space-sm);
+        background: color-mix(in srgb, var(--slot-nav-background) 90%, transparent);
         border-radius: var(--radius-pill);
         box-shadow: var(--shadow-flat);
       }
 
-      nav a {
+      .site-nav__item--placeholder {
+        opacity: 0.65;
+        font-style: italic;
+      }
+
+      .site-nav__link {
         color: var(--slot-nav-text);
         text-decoration: none;
         font-weight: 600;
         padding: var(--space-xs) var(--space-sm);
         border-radius: var(--radius-pill);
-        transition: color 0.2s ease, background 0.2s ease;
+        transition: all 0.2s ease;
       }
 
-      nav a:hover,
-      nav a:focus-visible {
+      .site-nav__link:hover,
+      .site-nav__link:focus-visible {
         color: var(--slot-nav-hover);
-        background: rgba(255, 255, 255, 0.08);
+        background: color-mix(in srgb, var(--slot-nav-background) 70%, transparent);
         outline: none;
       }
 
       main {
-        max-width: min(100%, var(--breakpoint-lg));
+        max-width: min(100%, calc(var(--breakpoint-lg) + var(--space-xl)));
         margin: 0 auto;
-        padding: var(--space-xl) var(--space-md);
+        padding: calc(var(--space-xl) + var(--space-lg)) var(--space-md) var(--space-xl);
       }
 
       article {
-        background: var(--color-surface-alt);
+        background: color-mix(in srgb, var(--color-surface-alt) 96%, transparent);
         border-radius: var(--radius-lg);
-        padding: var(--space-xl);
+        padding: clamp(var(--space-md), 2.5vw, var(--space-xl));
         border: 1px solid var(--color-border);
         box-shadow: var(--shadow-raised);
-      }
-
-      article.fallback-block {
-        border: 2px dashed var(--color-accent);
       }
 
       article p {
@@ -87,58 +119,61 @@
         white-space: pre-line;
       }
 
+      article.fallback-block {
+        border: 2px dashed var(--color-accent);
+      }
+
       .fallback-banner {
-        background: var(--color-surface-alt);
+        background: color-mix(in srgb, var(--color-surface-alt) 92%, transparent);
         border-left: 4px solid var(--color-accent);
         color: var(--color-text);
-        padding: var(--space-md);
+        padding: clamp(var(--space-md), 2vw, var(--space-lg));
         border-radius: var(--radius-md);
         margin: 0 auto var(--space-lg);
-        max-width: min(100%, var(--breakpoint-lg));
+        box-shadow: var(--shadow-flat);
       }
 
-      footer {
-        text-align: center;
-        padding: var(--space-lg) var(--space-md);
-        background: var(--slot-footer-background);
+      .site-footer {
+        margin-top: auto;
+        background: color-mix(in srgb, var(--slot-footer-background) 95%, transparent);
         color: var(--slot-footer-text);
-        margin-top: var(--space-xl);
+        padding: var(--space-xl) var(--space-md);
+        text-align: center;
       }
 
-      footer p {
+      .site-footer__inner {
+        max-width: min(100%, calc(var(--breakpoint-lg) + var(--space-xl)));
+        margin: 0 auto;
+      }
+
+      .site-footer p {
         margin: 0;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
       }
 
       @media (max-width: var(--breakpoint-md)) {
-        header {
+        .site-header__inner {
           padding: var(--space-lg) var(--space-sm);
+        }
+
+        .site-nav__list {
+          flex-wrap: wrap;
+          justify-content: center;
         }
 
         main {
-          padding: var(--space-lg) var(--space-sm);
+          padding: var(--space-lg) var(--space-sm) var(--space-xl);
         }
 
         article {
-          padding: var(--space-lg);
+          padding: clamp(var(--space-md), 4vw, var(--space-lg));
         }
       }
     </style>
   </head>
-  <body>
-    <header>
-      <h1>{{ block.title }}</h1>
-      <nav>
-        <ul>
-          <li><a href="{{ home_href }}">Start</a></li>
-          {% for item in navigation %}
-          <li><a href="{{ item.href }}">{{ item.label }}</a></li>
-          {% endfor %}
-        </ul>
-      </nav>
-    </header>
+  <body class="{{ framework.body_class }}">
+    {% include "_header.jinja" with header_title=(block.title or meta_title) home_href=home_href %}
     <main>
-
       {% if fallback_used %}
       <div class="fallback-banner">
         Automatischer LLM-Text fehlt für diese Seite. Bitte Inhalte manuell nachbearbeiten.
@@ -148,8 +183,6 @@
         <p>{{ block.body }}</p>
       </article>
     </main>
-    <footer>
-      <p>Generated by Agentic WebRenewal</p>
-    </footer>
+    {% include "_footer.jinja" %}
   </body>
 </html>

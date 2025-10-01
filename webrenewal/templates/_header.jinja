@@ -1,0 +1,12 @@
+{% set header_title = header_title | default('Renewed Website') %}
+<header class="site-header">
+  <div class="site-header__inner">
+    <div class="site-header__content">
+      <h1 class="site-title">{{ header_title }}</h1>
+      {% if header_subtitle %}
+      <p class="site-subtitle">{{ header_subtitle }}</p>
+      {% endif %}
+    </div>
+    {% include "_nav.jinja" with context %}
+  </div>
+</header>

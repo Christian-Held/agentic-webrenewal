@@ -1,0 +1,18 @@
+<nav class="site-nav" aria-label="Hauptnavigation">
+  <ul class="site-nav__list">
+    <li class="site-nav__item">
+      <a class="site-nav__link" href="{{ home_href | default('index.html') }}">Start</a>
+    </li>
+    {% if navigation and navigation|length %}
+      {% for item in navigation %}
+      <li class="site-nav__item">
+        <a class="site-nav__link" href="{{ item.href }}">{{ item.label }}</a>
+      </li>
+      {% endfor %}
+    {% else %}
+      <li class="site-nav__item site-nav__item--placeholder" aria-hidden="true">
+        Navigation folgt automatisch
+      </li>
+    {% endif %}
+  </ul>
+</nav>
