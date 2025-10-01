@@ -10,7 +10,7 @@ from urllib.robotparser import RobotFileParser
 
 import requests
 
-from .base import Agent
+from ..common import Agent
 from ..http import get
 from ..models import ScopePlan
 
@@ -26,7 +26,7 @@ class ScopeAgent(Agent[str, ScopePlan]):
         try:
             response = get(robots_url)
         except requests.RequestException as exc:  # type: ignore[attr-defined]
-            self.logger.warning("Failed to fetch robots.txt: %s", exc)
+            self.logger.warning("Failed to fetch robots.txt: %s", exc, exc_info=True)
             return None
         if response.status_code >= 400:
             self.logger.info("Robots.txt not available at %s", robots_url)
