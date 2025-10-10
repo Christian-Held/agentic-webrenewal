@@ -153,6 +153,51 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### FastAPI widget hosting
+
+The feature frontend exposes static assets via FastAPI so that external sites can
+load the embeddable chat widget.
+
+1. Start the service locally:
+
+   ```bash
+   uvicorn app.main:app --reload --port 3000
+   ```
+
+2. Fetch the compiled bundle:
+
+   ```bash
+   curl http://localhost:3000/widget.js
+   ```
+
+3. To share the widget externally during development, tunnel the same port with
+   Ngrok and request the file from the public URL (replace `<ngrok-url>` with the
+   tunnel value):
+
+   ```bash
+   ngrok http 3000
+   curl https://<ngrok-url>/widget.js
+   ```
+
+The static files live in `app/static/`, so additional assets can be added without
+modifying the FastAPI application.
+
+### Embedding the chatbot widget
+
+Any external site can load the chat widget by embedding the script and providing
+an application-issued `data-embed-token`:
+
+```html
+<script src="https://<your-domain>/widget.js" data-embed-token="XYZ"></script>
+```
+
+The script injects a floating launcher button that opens a sandboxed iframe
+pointing to `/embed/chat?token=<data-embed-token>`. The FastAPI service now
+serves that route with a placeholder chat surface that echoes the provided
+token so integrators can verify that the full round-trip works end to end.
+For a local demo open `examples/embed.html` in your browser after starting the
+FastAPI server.
+
 ### LLM Konfiguration & CLI
 
 Die Pipeline unterstützt mehrere Provider. Ohne weitere Parameter wird OpenAI mit dem Modell
