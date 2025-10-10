@@ -192,8 +192,11 @@ an application-issued `data-embed-token`:
 ```
 
 The script injects a floating launcher button that opens a sandboxed iframe
-pointing to `/embed/chat?token=<data-embed-token>`. For a local demo open
-`examples/embed.html` in your browser after starting the FastAPI server.
+pointing to `/embed/chat?token=<data-embed-token>`. The FastAPI service now
+serves that route with a placeholder chat surface that echoes the provided
+token so integrators can verify that the full round-trip works end to end.
+For a local demo open `examples/embed.html` in your browser after starting the
+FastAPI server.
 
 ### LLM Konfiguration & CLI
 
